@@ -10,7 +10,15 @@
 :root {
   --bg: #F1F7FD;
   --bg-2: #d7e2ee;
+
+  --white: #ffffff;
+  --white-hover: rgb(246, 246, 247);
+
   --text-muted: #5E657D;
+  --text-standard: #6E7591;
+
+  --border-standard: #d4d7dd;
+
   --muted: #5a6a7a;
   --card: #f8fbff;
   --stroke: #c6d4e3;
@@ -19,6 +27,7 @@
   --accent-2: #e8b04a;
   --danger: #b34b3d;
   --shadow: 0 1px 4px #0C0C0D25;
+
 
   background-color: var(--bg);
   font-family: "Inter", "Segoe UI", sans-serif;

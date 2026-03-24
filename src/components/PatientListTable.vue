@@ -1,40 +1,94 @@
 <template lang="html">
-    <section class="patient-list">
+  <section class="patient-list">
     <header class="patient-list__header">
-    
       <h1>Patients</h1>
-      <button class="add-patient-button" @click="addPatient">
-        +   Add new patient
+      <button class="add-patient-button button" @click="addPatient">
+        + Add new patient
       </button>
-      
     </header>
-      
 
     <div class="table-wrap">
+      <!-- SEARCH BAR -->
+      <div class="patient_list__search_bar">
         <div class="patient-list__filters">
-        <input
-          v-model="query"
-          class="input"
-          type="search"
-          placeholder="Search by ID…"
-          aria-label="Search by ID"
-        />
-        <select v-model="statusFilter" class="input" aria-label="Filter by status">
-          <option value="">All statuses</option>
-          <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
-        </select>
+          <input
+            v-model="query"
+            class="input"
+            type="search"
+            placeholder="Search by ID…"
+            aria-label="Search by ID"
+          />
+          <select
+            v-model="statusFilter"
+            class="input"
+            aria-label="Filter by status"
+          >
+            <option value="">All statuses</option>
+            <option v-for="s in statuses" :key="s" :value="s">{{ s }}</option>
+          </select>
+        </div>
+
+        <div class="search-bar__actions">
+        <button class="button button--ghost" @click="resetFilters"><RotateCcw :size="16"/>
+          Reset filters
+        </button>
+        <button
+          class="advanced-search-button button"
+          @click="showAdvanced = !showAdvanced"
+        >
+          {{ showAdvanced ? "Hide extended search" : "Show extended search" }}
+          <ArrowDown :size="16" class="arrow" :class="{ 'arrow--open': showAdvanced }" />
+        </button>
+        </div>
       </div>
+
+      <!-- ADVANCED SEARCH-->
+      <div v-if="showAdvanced" class="advanced-search">
+        <div class="advanced-field">
+          <label>Age (years)</label>
+          <div class="age-range">
+            <input
+              v-model.number="ageMin"
+              class="input"
+              type="number"
+              min="0"
+              placeholder="Min"
+            />
+            <span class="range-sep">—</span>
+            <input
+              v-model.number="ageMax"
+              class="input"
+              type="number"
+              min="0"
+              placeholder="Max"
+            />
+          </div>
+        </div>
+
+        <div class="advanced-field">
+          <label>TEM</label>
+          <select v-model="temFilter" class="input">
+            <option value="">Any</option>
+            <option value="Positive">Positive</option>
+            <option value="Negative">Negative</option>
+            <option value="N/A">N/A</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- PATIENTS TABLE  -->
+
       <table class="table">
         <thead>
           <tr>
             <th class="sticky-left" @click="toggleSort('id')">
-              ID <span class="sort">{{ sortIndicator('id') }}</span>
+              ID <span class="sort">{{ sortIndicator("id") }}</span>
             </th>
             <th @click="toggleSort('dob')">
-              Date of Birth <span class="sort">{{ sortIndicator('dob') }}</span>
+              Date of Birth <span class="sort">{{ sortIndicator("dob") }}</span>
             </th>
             <th @click="toggleSort('status')" class="divider">
-              Status <span class="sort">{{ sortIndicator('status') }}</span>
+              Status <span class="sort">{{ sortIndicator("status") }}</span>
             </th>
             <th>HSVM</th>
             <th>nNO</th>
@@ -42,17 +96,19 @@
             <th>IF</th>
             <th class="divider">Genetics</th>
             <th @click="toggleSort('dateAdded')">
-              Date added <span class="sort">{{ sortIndicator('dateAdded') }}</span>
+              Date added
+              <span class="sort">{{ sortIndicator("dateAdded") }}</span>
             </th>
             <th @click="toggleSort('lastUpdate')">
-              Last update <span class="sort">{{ sortIndicator('lastUpdate') }}</span>
+              Last update
+              <span class="sort">{{ sortIndicator("lastUpdate") }}</span>
             </th>
           </tr>
         </thead>
 
         <tbody>
-          <tr v-for="p in sortedPatients" :key="p.id">
-            <td class="sticky-left mono">{{ p.id }}</td>
+          <tr v-for="p in filteredPatients" :key="p.id">
+            <td class="sticky-left id">{{ p.id }}</td>
             <td>
               <div>{{ p.dob }}</div>
               <div class="muted">{{ p.age }} years</div>
@@ -60,11 +116,23 @@
             <td class="divider">
               <span class="pill" :data-status="p.status">{{ p.status }}</span>
             </td>
-            <td><span class="diag" :data-state="p.hsvm">{{ p.hsvm }}</span></td>
-            <td><span class="diag" :data-state="p.nno">{{ p.nno }}</span></td>
-            <td><span class="diag" :data-state="p.tem">{{ p.tem }}</span></td>
-            <td><span class="diag" :data-state="p.if">{{ p.if }}</span></td>
-            <td class="divider"><span class="diag" :data-state="p.genetics">{{ p.genetics }}</span></td>
+            <td>
+              <span class="diag" :data-state="p.hsvm">{{ p.hsvm }}</span>
+            </td>
+            <td>
+              <span class="diag" :data-state="p.nno">{{ p.nno }}</span>
+            </td>
+            <td>
+              <span class="diag" :data-state="p.tem">{{ p.tem }}</span>
+            </td>
+            <td>
+              <span class="diag" :data-state="p.if">{{ p.if }}</span>
+            </td>
+            <td class="divider">
+              <span class="diag" :data-state="p.genetics">{{
+                p.genetics
+              }}</span>
+            </td>
             <td>{{ p.dateAdded }}</td>
             <td>{{ p.lastUpdate }}</td>
           </tr>
@@ -74,55 +142,36 @@
   </section>
 </template>
 
-
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
+import { usePatientsStore } from "../stores/patients";
+import { ArrowDown, RotateCcw } from "lucide-vue-next";
+
+const patientsStore = usePatientsStore();
+
+const query = ref("");
+
+const showAdvanced = ref(false);
+const ageMin = ref<number | null>(null);
+const ageMax = ref<number | null>(null);
+const temFilter = ref<"" | "Positive" | "Negative" | "N/A">("");
+
+const filteredPatients = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  let items = patientsStore.items;
+
+  if (q) items = items.filter((p) => p.id.toLowerCase().includes(q));
+
+  if (ageMin.value != null) items = items.filter((p) => p.age >= ageMin.value!);
+  if (ageMax.value != null) items = items.filter((p) => p.age <= ageMax.value!);
+
+  if (temFilter.value) items = items.filter((p) => p.tem === temFilter.value);
+
+  return items;
+});
 
 const statuses = ["Active", "Pending", "Inactive", "Archived"];
 
-const patients = ref([
-  {
-    id: "0001",
-    dob: "1989-07-14",
-    age: 35,
-    status: "Active",
-    hsvm: "Done",
-    nno: "Pending",
-    tem: "N/A",
-    if: "Done",
-    genetics: "Unknown",
-    dateAdded: "2024-01-05",
-    lastUpdate: "2024-03-01",
-  },
-  {
-    id: "0002",
-    dob: "2001-11-02",
-    age: 23,
-    status: "Pending",
-    hsvm: "Pending",
-    nno: "Pending",
-    tem: "Pending",
-    if: "Pending",
-    genetics: "Pending",
-    dateAdded: "2024-02-14",
-    lastUpdate: "2024-03-10",
-  },
-  {
-    id: "0003",
-    dob: "1976-03-28",
-    age: 48,
-    status: "Inactive",
-    hsvm: "Done",
-    nno: "Done",
-    tem: "Done",
-    if: "Done",
-    genetics: "Done",
-    dateAdded: "2023-12-01",
-    lastUpdate: "2024-02-20",
-  },
-]);
-
-const query = ref("");
 const statusFilter = ref("");
 const sortKey = ref("lastUpdate");
 const sortDir = ref("desc");
@@ -130,7 +179,8 @@ const sortDir = ref("desc");
 const filtered = computed(() => {
   return patients.value.filter((p) => {
     const matchesQuery = p.id.toLowerCase().includes(query.value.toLowerCase());
-    const matchesStatus = !statusFilter.value || p.status === statusFilter.value;
+    const matchesStatus =
+      !statusFilter.value || p.status === statusFilter.value;
     return matchesQuery && matchesStatus;
   });
 });
@@ -161,11 +211,22 @@ function sortIndicator(key) {
   if (sortKey.value !== key) return "";
   return sortDir.value === "asc" ? "▲" : "▼";
 }
+
+function resetFilters() {
+  query.value = "";
+  statusFilter.value = "";
+  ageMin.value = null;
+  ageMax.value = null;
+  temFilter.value = "";
+}
+
+onMounted(() => {
+  patientsStore.fetchList();
+});
 </script>
 
-
 <style scoped lang="css">
-    .patient-list {
+.patient-list {
   padding: 24px;
 }
 
@@ -177,15 +238,21 @@ function sortIndicator(key) {
   margin-bottom: 16px;
 }
 
+.patient_list__search_bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
 .patient-list__filters {
-    padding: 16px;
+  padding: 16px;
   display: flex;
   gap: 12px;
 }
 
 .input {
   border: 1px solid #d4d7dd;
-  padding: 8px 10px;
+  padding: 8px 16px;
   border-radius: 8px;
   background: #fff;
   font-size: 14px;
@@ -223,7 +290,7 @@ tbody td {
   padding: 12px 10px;
   border-bottom: 1px solid #eef1f6;
   font-size: 14px;
-  color: #1f2328;
+  color: var(--text-standard);
   vertical-align: top;
 }
 
@@ -232,18 +299,51 @@ tbody td {
   transition: background 120ms ease;
 }
 
-.add-patient-button {
-  background: var(--accent);
-  color: #fff;
+.button {
   border: none;
+  height: 36px;
   padding: 8px 16px;
   border-radius: 8px;
   font-size: 14px;
   cursor: pointer;
 }
 
+.add-patient-button {
+  background: var(--accent);
+  color: #fff;
+}
+
 .add-patient-button:hover {
   background: var(--accent-hover);
+  transition: background 150ms ease;
+}
+
+.advanced-search-button {
+  background: white;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-standard);
+  border: 1px solid var(--border-standard);
+}
+
+.advanced-search-button:hover {
+  background: var(--white-hover);
+  transition: background 150ms ease;
+}
+
+.button--ghost {
+  background: transparent;
+  border: 1px solid #e1e5ea;
+  color: var(--text-standard);
+  margin: 16px 0px 16px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.button--ghost:hover {
+  background: var(--white-hover);
   transition: background 150ms ease;
 }
 
@@ -255,8 +355,8 @@ tbody td {
   border-right: 1px solid #eef1f6;
 }
 
-.mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+.id {
+  font-weight: bold;
 }
 
 .muted {
@@ -316,6 +416,11 @@ tbody td {
   color: #8a1f2c;
 }
 
+.diag[data-state="Positive"] {
+  background: #fbeef2;
+  color: #8a1f2c;
+}
+
 .sort {
   font-size: 11px;
   color: #7b8794;
@@ -323,6 +428,48 @@ tbody td {
 }
 
 .divider {
-    border-right: 1px solid #e6e9ef;
+  border-right: 1px solid #e6e9ef;
+}
+
+.arrow {
+  transition: transform 160ms ease;
+}
+.arrow--open {
+  transform: rotate(180deg);
+}
+
+.advanced-search {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 10px;
+  border: 1px solid #eef1f6;
+  border-radius: 10px;
+  background: #fafbfe;
+}
+
+.advanced-field label {
+  display: block;
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
+
+.age-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.range-sep {
+  color: #9aa3af;
+}
+
+.search-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: 16px;
 }
 </style>
