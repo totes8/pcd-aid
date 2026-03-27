@@ -7,6 +7,7 @@ import PatientListTable from '../components/PatientListTable.vue';
   <div class="page">
     <Navbar/>
     <main class="main">
+      
     <PatientListTable/>
     </main>
     </div>

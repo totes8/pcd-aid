@@ -107,7 +107,7 @@
         </thead>
 
         <tbody>
-          <tr v-for="p in filteredPatients" :key="p.id">
+          <tr v-for="p in filteredPatients" :key="p.id" @click="goToPatient(p.id)" class="row-click">
             <td class="sticky-left id">{{ p.id }}</td>
             <td>
               <div>{{ p.dob }}</div>
@@ -144,10 +144,13 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
 import { usePatientsStore } from "../stores/patients";
 import { ArrowDown, RotateCcw } from "lucide-vue-next";
 
 const patientsStore = usePatientsStore();
+const router = useRouter();
+
 
 const query = ref("");
 
@@ -220,6 +223,10 @@ function resetFilters() {
   temFilter.value = "";
 }
 
+function goToPatient(id: string) {
+  router.push({ name: "PatientProfile", params: { id } });
+}
+
 onMounted(() => {
   patientsStore.fetchList();
 });
@@ -229,6 +236,10 @@ onMounted(() => {
 .patient-list {
   padding: 24px;
 }
+
+.row-click { cursor: pointer; }
+
+.row-click:hover { background: #f8fafc; }
 
 .patient-list__header {
   display: flex;
@@ -294,10 +305,7 @@ tbody td {
   vertical-align: top;
 }
 
-.table tbody tr:hover {
-  background: #f8fafc;
-  transition: background 120ms ease;
-}
+
 
 .button {
   border: none;
