@@ -2,10 +2,32 @@
   <section class="patient-list">
     <header class="patient-list__header">
       <h1>Patients</h1>
-      <button class="add-patient-button button">
-        + Add new patient
-      </button>
+      <button class="add-patient-button button" @click="openModal">
+  + Add new patient
+</button>
     </header>
+
+<!-- MDOAL -->
+    <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
+  <div class="modal">
+    <h3>Add patient</h3>
+
+    <label class="field">
+      <span class="label">Patient ID</span>
+      <input v-model="newId" class="input" type="text" placeholder="XXXX" />
+    </label>
+
+    <label class="field">
+      <span class="label">Date of birth</span>
+      <input v-model="newDob" class="input" type="date" />
+    </label>
+
+    <div class="modal-actions">
+      <button class="button button--ghost" @click="closeModal">Cancel</button>
+      <button class="button" @click="submitNewPatient">Create</button>
+    </div>
+  </div>
+</div>
 
     <div class="table-wrap">
       <!-- SEARCH BAR -->
@@ -159,6 +181,26 @@ const ageMin = ref<number | null>(null);
 const ageMax = ref<number | null>(null);
 const temFilter = ref<"" | "Positive" | "Negative" | "N/A">("");
 
+const showModal = ref(false);
+const newId = ref("");
+const newDob = ref("");
+
+function openModal() {
+  showModal.value = true;
+}
+
+function closeModal() {
+  showModal.value = false;
+  newId.value = "";
+  newDob.value = "";
+}
+
+function submitNewPatient() {
+  if (!newId.value || !newDob.value) return;
+  patientsStore.addPatient({ id: newId.value.trim(), dob: newDob.value });
+  closeModal();
+}
+
 const filteredPatients = computed(() => {
   const q = query.value.trim().toLowerCase();
   let items = patientsStore.items;
@@ -224,7 +266,7 @@ function resetFilters() {
 }
 
 function goToPatient(id: string) {
-  router.push({ name: "PatientProfile", params: { id } });
+  router.push({ name: "patientProfile", params: { id } });
 }
 
 onMounted(() => {
@@ -236,6 +278,38 @@ onMounted(() => {
 .patient-list {
   padding: 24px;
 }
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-radius: 12px;
+  padding: 18px;
+  width: 360px;
+  max-width: 90vw;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 
 .row-click { cursor: pointer; }
 
@@ -344,7 +418,6 @@ tbody td {
   background: transparent;
   border: 1px solid #e1e5ea;
   color: var(--text-standard);
-  margin: 16px 0px 16px 16px;
   display: flex;
   align-items: center;
   gap: 12px;

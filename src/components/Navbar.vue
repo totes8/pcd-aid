@@ -9,9 +9,9 @@
       </div>
 
       <div class="profile-card">
-        <img class="avatar" src="" alt="User" />
+        <div class="avatar">JM</div>
         <div>
-          <div class="name">Dr. Laura Novak</div>
+          <div class="name">MUDr. Janko Mrkvička</div>
           <div class="role">Pulmonology</div>
         </div>
       </div>
@@ -55,6 +55,23 @@ import {Users, Globe, Handshake, Settings} from "lucide-vue-next";
   box-shadow: var(--shadow);
 }
 
+.avatar {
+  background-color: #e1e5ea;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin: auto;
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  font-size: 12px;
+
+}
+
+.name {
+  margin-right: 0px;
+}
+
 .brand {
     display: flex;
     align-items: center;
@@ -96,5 +113,9 @@ import {Users, Globe, Handshake, Settings} from "lucide-vue-next";
 .profile-card {
   background-color: var(--bg);
   border-radius: 10px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 4px;
 }
 </style>

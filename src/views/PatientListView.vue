@@ -5,7 +5,7 @@ import PatientListTable from '../components/PatientListTable.vue';
 
 <template>
   <div class="page">
-    <Navbar/>
+    <Navbar class="navbar"/>
     <main class="main">
       
     <PatientListTable/>
@@ -16,5 +16,11 @@ import PatientListTable from '../components/PatientListTable.vue';
 <style scoped>
 .page {
   display: flex;
+}
+.navbar {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  height: 100vh;
 }
 </style>
