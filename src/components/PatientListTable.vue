@@ -2,7 +2,7 @@
   <section class="patient-list">
     <header class="patient-list__header">
       <h1>Patients</h1>
-      <button class="add-patient-button button" @click="addPatient">
+      <button class="add-patient-button button">
         + Add new patient
       </button>
     </header>
@@ -179,16 +179,16 @@ const statusFilter = ref("");
 const sortKey = ref("lastUpdate");
 const sortDir = ref("desc");
 
-const filtered = computed(() => {
-  return patients.value.filter((p) => {
+/*const filtered = computed(() => {
+  return filteredPatients.value.filter((p) => {
     const matchesQuery = p.id.toLowerCase().includes(query.value.toLowerCase());
     const matchesStatus =
       !statusFilter.value || p.status === statusFilter.value;
     return matchesQuery && matchesStatus;
   });
-});
+});*/
 
-const sortedPatients = computed(() => {
+/*const sortedPatients = computed(() => {
   const items = [...filtered.value];
   items.sort((a, b) => {
     const av = a[sortKey.value];
@@ -199,9 +199,9 @@ const sortedPatients = computed(() => {
     return av < bv ? 1 : -1;
   });
   return items;
-});
+});*/
 
-function toggleSort(key) {
+function toggleSort(key: string) {
   if (sortKey.value === key) {
     sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
   } else {
@@ -210,7 +210,7 @@ function toggleSort(key) {
   }
 }
 
-function sortIndicator(key) {
+function sortIndicator(key: string) {
   if (sortKey.value !== key) return "";
   return sortDir.value === "asc" ? "▲" : "▼";
 }
