@@ -1,10 +1,17 @@
 import { defineStore } from "pinia";
 
+export type PatientStatus =
+  | "Not Diagnosed"
+  | "Highly Suspected"
+  | "Confirmed PCD"
+  | "PCD Unconfirmed";
+
 export type PatientListItem = {
   id: string;
   dob: string;         // YYYY-MM-DD
   age: number; 
-  status: "Active" | "Pending" | "Inactive" | "Archived";
+  clinician: string;
+  status: PatientStatus;
   hsvm?: "Done" | "Pending" | "N/A" | "Unknown";
   nno?: "Done" | "Pending" | "N/A" | "Unknown";
   tem?: "Positive" | "Negative" | "N/A";
@@ -59,7 +66,7 @@ export const usePatientsStore = defineStore("patients", {
     setItems(items: PatientListItem[]) {
       this.items = items;
     },
-    addPatient(payload: { id: string; dob: string }) {
+    addPatient(payload: { id: string; dob: string; clinician?: string; status?: PatientStatus }) {
   const age = calcAge(payload.dob);
   const today = new Date().toISOString().slice(0, 10);
 
@@ -67,7 +74,8 @@ export const usePatientsStore = defineStore("patients", {
     id: payload.id,
     dob: payload.dob,
     age,
-    status: "Pending",
+    clinician: payload.clinician ?? "Unknown",
+    status: payload.status ?? "Not Diagnosed",
     hsvm: "Unknown",
     nno: "Unknown",
     tem: "N/A",
@@ -88,7 +96,8 @@ export const usePatientsStore = defineStore("patients", {
         id: "0001",
         dob: "1989-07-14",
         age: calcAge("1989-07-14"),
-        status: "Active",
+        clinician: "Dr. Smith",
+        status: "Confirmed PCD",
         hsvm: "Done",
         nno: "Pending",
         tem: "Positive",
@@ -101,7 +110,8 @@ export const usePatientsStore = defineStore("patients", {
         id: "0002",
         dob: "2001-07-18",
         age: calcAge("2001-07-18"),
-        status: "Archived",
+        clinician: "Dr. Smith",
+        status: "PCD Unconfirmed",
         hsvm: "Done",
         nno: "Pending",
         tem: "N/A",

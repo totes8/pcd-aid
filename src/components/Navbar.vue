@@ -50,7 +50,8 @@ import {Users, Globe, Handshake, Settings} from "lucide-vue-next";
   justify-content: space-between;
   height: 100vh;
   width: 250px;
-  background-color: var(--card);
+  background-color: var(--white);
+  background-color: var(--white);
   padding: 20px;
   box-shadow: var(--shadow);
 }

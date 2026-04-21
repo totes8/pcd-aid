@@ -215,7 +215,7 @@ const filteredPatients = computed(() => {
   return items;
 });
 
-const statuses = ["Active", "Pending", "Inactive", "Archived"];
+const statuses = ["Not Diagnosed", "Highly Suspected", "Confirmed PCD", "PCD Unconfirmed"];
 
 const statusFilter = ref("");
 const sortKey = ref("lastUpdate");
@@ -453,19 +453,19 @@ tbody td {
   display: inline-block;
 }
 
-.pill[data-status="Active"] {
-  background: #e7f6ed;
-  color: #1b5e20;
-}
-.pill[data-status="Pending"] {
-  background: #fff4e5;
-  color: #8a5a00;
-}
-.pill[data-status="Inactive"] {
+.pill[data-status="Not Diagnosed"] {
   background: #f1f3f7;
   color: #4b5563;
 }
-.pill[data-status="Archived"] {
+.pill[data-status="Highly Suspected"] {
+  background: #fff4e5;
+  color: #8a5a00;
+}
+.pill[data-status="Confirmed PCD"] {
+  background: #e7f6ed;
+  color: #1b5e20;
+}
+.pill[data-status="PCD Unconfirmed"] {
   background: #fbeaec;
   color: #8a1f2c;
 }

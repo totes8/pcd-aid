@@ -24,7 +24,7 @@
   --stroke: #c6d4e3;
   --accent: #0074FF;
   --accent-hover: #0767dc;
-  --accent-2: #e8b04a;
+  --accent-transparent: #0074FF10;
   --danger: #b34b3d;
   --shadow: 0 1px 4px #0C0C0D25;
 
