@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import type { PatientListItem } from "./patients";
 
 export type YesNo = "Yes" | "No";
 
@@ -58,6 +59,151 @@ type PatientSession = {
 type SessionState = {
   byPatientId: Record<string, PatientSession>;
 };
+
+function templateFromListItem(item: PatientListItem): AnamnesisModel {
+  const base = defaultAnamnesis();
+
+  if (item.status === "Confirmed PCD") {
+    return {
+      ...base,
+      picadar: 8,
+      clinicalIndex: 6,
+      picadarAnswers: {
+        wetCough: "Yes",
+        born: "Term",
+        neonatalChestSymptoms: "Yes",
+        neonatalUnitAdmission: "Yes",
+        situsAbnormality: "Yes",
+        congenitalHeartDefect: "No",
+        perennialRhinitis: "Yes",
+        chronicEarOrHearingSymptoms: "Yes",
+      },
+      clinicalIndexAnswers: {
+        respiratoryDifficultiesAfterBirth: "Yes",
+        earlyRhinitisOrMucus: "Yes",
+        pneumonia: "Yes",
+        threePlusBronchitisEpisodes: "Yes",
+        chronicOtitisOrThreePlusAcuteOtitis: "Yes",
+        yearRoundNasalDischargeOrObstruction: "Yes",
+        antibioticsForAuriThreePlus: "No",
+      },
+      organPositionDisorder: "Situs inversus",
+      congenitalHeartDefect: "No",
+      ciliaryDisorderInCns: "No",
+      retinitisPigmentosa: "No",
+      renalProblems: "No",
+      fertilityDisorder: "Unknown",
+      otherComorbidities: "No",
+      postnatal: {
+        gestationAge: "39 weeks",
+        neonatalRds: "Yes",
+        cough: "Yes",
+        rhinitis: "Yes",
+        pneumonia: "Yes",
+        hydrocephalus: "No",
+        hospitalizationAtNeoJip: "Yes",
+        oxygenTherapy: "Yes",
+        lungVentilation: "No",
+      },
+      notes: "Pattern compatible with chronic sinopulmonary disease from early infancy.",
+    };
+  }
+
+  if (item.status === "Highly Suspected") {
+    return {
+      ...base,
+      picadar: 5,
+      clinicalIndex: 5,
+      picadarAnswers: {
+        wetCough: "Yes",
+        born: "Term",
+        neonatalChestSymptoms: "Yes",
+        neonatalUnitAdmission: "No",
+        situsAbnormality: "No",
+        congenitalHeartDefect: "No",
+        perennialRhinitis: "Yes",
+        chronicEarOrHearingSymptoms: "Yes",
+      },
+      clinicalIndexAnswers: {
+        respiratoryDifficultiesAfterBirth: "Yes",
+        earlyRhinitisOrMucus: "Yes",
+        pneumonia: "No",
+        threePlusBronchitisEpisodes: "Yes",
+        chronicOtitisOrThreePlusAcuteOtitis: "Yes",
+        yearRoundNasalDischargeOrObstruction: "Yes",
+        antibioticsForAuriThreePlus: "No",
+      },
+      organPositionDisorder: "Not present",
+      congenitalHeartDefect: "No",
+      ciliaryDisorderInCns: "Unknown",
+      retinitisPigmentosa: "No",
+      renalProblems: "Unknown",
+      fertilityDisorder: "Unknown",
+      otherComorbidities: "No",
+      postnatal: {
+        gestationAge: "38 weeks",
+        neonatalRds: "Unknown",
+        cough: "Yes",
+        rhinitis: "Yes",
+        pneumonia: "No",
+        hydrocephalus: "No",
+        hospitalizationAtNeoJip: "Unknown",
+        oxygenTherapy: "Unknown",
+        lungVentilation: "No",
+      },
+      notes: "Clinical picture suggests PCD; confirmatory testing pending.",
+    };
+  }
+
+  if (item.status === "PCD Unconfirmed") {
+    return {
+      ...base,
+      picadar: 2,
+      clinicalIndex: 2,
+      picadarAnswers: {
+        wetCough: "Yes",
+        born: "Pre-term",
+        neonatalChestSymptoms: "No",
+        neonatalUnitAdmission: "No",
+        situsAbnormality: "No",
+        congenitalHeartDefect: "No",
+        perennialRhinitis: "Yes",
+        chronicEarOrHearingSymptoms: "No",
+      },
+      clinicalIndexAnswers: {
+        respiratoryDifficultiesAfterBirth: "No",
+        earlyRhinitisOrMucus: "No",
+        pneumonia: "No",
+        threePlusBronchitisEpisodes: "Yes",
+        chronicOtitisOrThreePlusAcuteOtitis: "No",
+        yearRoundNasalDischargeOrObstruction: "Yes",
+        antibioticsForAuriThreePlus: "No",
+      },
+      organPositionDisorder: "Not present",
+      congenitalHeartDefect: "No",
+      ciliaryDisorderInCns: "No",
+      retinitisPigmentosa: "No",
+      renalProblems: "No",
+      fertilityDisorder: "Unknown",
+      otherComorbidities: "No",
+      postnatal: {
+        gestationAge: "36 weeks",
+        neonatalRds: "No",
+        cough: "Unknown",
+        rhinitis: "Yes",
+        pneumonia: "No",
+        hydrocephalus: "No",
+        hospitalizationAtNeoJip: "No",
+        oxygenTherapy: "No",
+        lungVentilation: "No",
+      },
+      notes: "Current evidence does not support confirmed PCD diagnosis.",
+    };
+  }
+
+  // Not diagnosed (new patients): keep unknown/blank defaults as requested.
+  return base;
+}
 
 function normalizeAnamnesisShape(a: any): asserts a is AnamnesisModel {
   if (!a.picadarAnswers) a.picadarAnswers = defaultAnamnesis().picadarAnswers;
@@ -146,6 +292,15 @@ export const usePatientSessionStore = defineStore("patientSession", {
   }),
 
   actions: {
+    ensureFromListItem(item: PatientListItem) {
+      if (!this.byPatientId[item.id]) {
+        this.byPatientId[item.id] = { anamnesis: templateFromListItem(item) };
+      }
+      normalizeAnamnesisShape(this.byPatientId[item.id].anamnesis as any);
+    },
+    ensureFromList(items: PatientListItem[]) {
+      for (const item of items) this.ensureFromListItem(item);
+    },
     getOrCreate(patientId: string): PatientSession {
       if (!this.byPatientId[patientId]) {
         this.byPatientId[patientId] = { anamnesis: defaultAnamnesis() };

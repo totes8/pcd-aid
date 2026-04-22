@@ -248,6 +248,7 @@ import AnamnesisCard from "./Cards/AnamnesisCard.vue";
 import DiagnosticTests from "./Cards/DiagnosticTests.vue";
 import BlankCard from "./Cards/BlankCard.vue";
 import { type PatientStatus, usePatientsStore } from "../stores/patients";
+import { usePatientProfilesStore } from "../stores/patientProfiles";
 import { User } from "lucide-vue-next";
 
 const route = useRoute();
@@ -257,6 +258,7 @@ const activeTab = ref<"anamnesis" | "diagnostic" | "ai" | "collab">(
 );
 
 const patientsStore = usePatientsStore();
+const patientProfilesStore = usePatientProfilesStore();
 const pcdStatusOptions: readonly PatientStatus[] = [
   "Not Diagnosed",
   "Highly Suspected",
@@ -307,8 +309,8 @@ function isValidDob(dob: string): boolean {
 }
 
 const patient = reactive({
-  dob: "1989-07-14",
-  age: calcAge("1989-07-14"),
+  dob: "",
+  age: 0,
   clinician: "Janko Mrkvička",
   status: "Not Diagnosed" as PatientStatus,
   siblings: 0,
@@ -335,14 +337,25 @@ const patient = reactive({
   ],
 });
 
-// Prefer store data when available (currently mock store is the closest thing to source-of-truth).
-const storePatient = patientsStore.byId(patientId);
-if (storePatient) {
-  patient.dob = storePatient.dob;
-  patient.age = storePatient.age;
-  patient.clinician = storePatient.clinician;
-  patient.status = storePatient.status;
+function hydratePatientFromStores() {
+  const listItem = patientsStore.byId(patientId);
+  if (listItem) {
+    patientProfilesStore.ensureFromListItem(listItem);
+  }
+
+  const profile = patientProfilesStore.getById(patientId);
+  if (!profile) return;
+
+  patient.dob = profile.dob;
+  patient.age = calcAge(profile.dob);
+  patient.clinician = profile.clinician;
+  patient.status = profile.status;
+  patient.siblings = profile.siblings;
+  patient.ageAtDiagnosis = profile.ageAtDiagnosis;
+  patient.bloodRelativesWithPCD = profile.bloodRelativesWithPCD;
 }
+
+hydratePatientFromStores();
 
 const editingBasicInfo = ref(false);
 const basicInfoDraft = reactive({
@@ -413,6 +426,14 @@ function saveBasicInfo() {
     listItem.status = patient.status;
     listItem.lastUpdate = new Date().toISOString().slice(0, 10);
   }
+
+  patientProfilesStore.updateBasicInfo(patientId, {
+    dob: patient.dob,
+    status: patient.status,
+    siblings: patient.siblings,
+    ageAtDiagnosis: patient.ageAtDiagnosis,
+    bloodRelativesWithPCD: patient.bloodRelativesWithPCD,
+  });
 }
 
 type NoteItem = { id: string; author: string; date: string; text: string };

@@ -1,4 +1,5 @@
 import { defineStore } from "pinia";
+import type { PatientListItem } from "./patients";
 
 export type NnoEntry = {
   id: string;
@@ -57,12 +58,88 @@ function defaultSession(): PatientDiagnosticsSession {
   return { nno: [], hsvm: [], if: [], genetics: [] };
 }
 
+function seededSessionFromListItem(item: PatientListItem): PatientDiagnosticsSession {
+  const session = defaultSession();
+
+  const nnoValue =
+    item.status === "Confirmed PCD" ? 32 :
+    item.status === "Highly Suspected" ? 58 :
+    item.status === "PCD Unconfirmed" ? 118 :
+    92;
+
+  if (item.nno === "Done") {
+    session.nno.push({
+      id: `seed_nno_${item.id}`,
+      valuePpb: nnoValue,
+      date: item.lastUpdate,
+      clinician: item.clinician,
+    });
+  }
+
+  if (item.hsvm === "Done") {
+    const report =
+      item.status === "Confirmed PCD"
+        ? "Persistent dyskinetic ciliary beat pattern with reduced coordination; findings support PCD."
+        : item.status === "Highly Suspected"
+          ? "Abnormal beat pattern observed in multiple fields; repeat sampling recommended for confirmation."
+          : "HSVM largely preserved with occasional secondary dyskinesia; not strongly supportive of PCD.";
+
+    session.hsvm.push({
+      id: `seed_hsvm_${item.id}`,
+      report,
+      date: item.lastUpdate,
+      clinician: item.clinician,
+      attachment: null,
+    });
+  }
+
+  if (item.if === "Done") {
+    const report =
+      item.status === "Confirmed PCD"
+        ? "IF demonstrates absent/reduced axonemal protein signal consistent with ciliary structural defect."
+        : "IF panel without definitive loss pattern; interpretation non-diagnostic.";
+
+    session.if.push({
+      id: `seed_if_${item.id}`,
+      report,
+      date: item.lastUpdate,
+      clinician: item.clinician,
+      attachment: null,
+    });
+  }
+
+  if (item.genetics === "Done") {
+    const report =
+      item.status === "Confirmed PCD"
+        ? "Pathogenic biallelic PCD-associated variants identified; molecular findings confirm diagnosis."
+        : "No clearly pathogenic biallelic variants identified; result currently non-confirmatory.";
+
+    session.genetics.push({
+      id: `seed_genetics_${item.id}`,
+      report,
+      date: item.lastUpdate,
+      clinician: item.clinician,
+      attachment: null,
+    });
+  }
+
+  return session;
+}
+
 export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnosticsSession", {
   state: (): State => ({
     byPatientId: {},
   }),
 
   actions: {
+    ensureFromListItem(item: PatientListItem) {
+      if (!this.byPatientId[item.id]) {
+        this.byPatientId[item.id] = seededSessionFromListItem(item);
+      }
+    },
+    ensureFromList(items: PatientListItem[]) {
+      for (const item of items) this.ensureFromListItem(item);
+    },
     getOrCreate(patientId: string): PatientDiagnosticsSession {
       if (!this.byPatientId[patientId]) {
         this.byPatientId[patientId] = defaultSession();

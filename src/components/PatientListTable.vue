@@ -228,9 +228,15 @@
 import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePatientsStore } from "../stores/patients";
+import { usePatientProfilesStore } from "../stores/patientProfiles";
+import { usePatientSessionStore } from "../stores/patientSession";
+import { usePatientDiagnosticsSessionStore } from "../stores/patientDiagnosticsSession";
 import { ArrowDown, RotateCcw, Sparkles } from "lucide-vue-next";
 
 const patientsStore = usePatientsStore();
+const patientProfilesStore = usePatientProfilesStore();
+const patientSessionStore = usePatientSessionStore();
+const patientDiagnosticsSessionStore = usePatientDiagnosticsSessionStore();
 const router = useRouter();
 
 
@@ -282,6 +288,12 @@ function closeModal() {
 function submitNewPatient() {
   if (!newId.value || !newDob.value) return;
   patientsStore.addPatient({ id: newId.value.trim(), dob: newDob.value });
+  const created = patientsStore.byId(newId.value.trim());
+  if (created) {
+    patientProfilesStore.ensureFromListItem(created);
+    patientSessionStore.ensureFromListItem(created);
+    patientDiagnosticsSessionStore.ensureFromListItem(created);
+  }
   closeModal();
 }
 
@@ -370,8 +382,11 @@ function goToPatient(id: string) {
   router.push({ name: "patientProfile", params: { id } });
 }
 
-onMounted(() => {
-  patientsStore.fetchList();
+onMounted(async () => {
+  await patientsStore.fetchList();
+  patientProfilesStore.ensureFromList(patientsStore.items);
+  patientSessionStore.ensureFromList(patientsStore.items);
+  patientDiagnosticsSessionStore.ensureFromList(patientsStore.items);
 });
 
 function buildSmartResult(patient: any, prompt: string): SmartResult {
@@ -531,12 +546,17 @@ function buildSmartResult(patient: any, prompt: string): SmartResult {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-width: 0;
 }
 
 .patient-list__filters {
   padding: 16px;
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .input {
@@ -759,6 +779,9 @@ h1 {
   align-items: center;
   gap: 12px;
   margin-right: 16px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
 .smart-search-button {
@@ -775,6 +798,8 @@ h1 {
   border: 1px solid #eef1f6;
   border-radius: 12px;
   background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%);
+  min-width: 0;
+  overflow: hidden;
 }
 
 .smart-search__header h3 {
@@ -784,11 +809,14 @@ h1 {
 
 .smart-search__header .muted {
   margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .smart-search__input {
   margin-top: 10px;
   width: 100%;
+  max-width: 100%;
   box-sizing: border-box;
   resize: vertical;
   min-height: 110px;
@@ -814,6 +842,8 @@ h1 {
 
 .smart-search__stub {
   margin: 10px 0 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .button--accent {
@@ -834,14 +864,18 @@ h1 {
 
 .smart-result-cell {
   border-bottom: 1px solid #eef1f6;
+  max-width: 0;
 }
 
 .smart-result {
-  margin: 2px 0 10px;
+  margin: 12px;
   border: 1px solid #e9edf7;
   border-radius: 10px;
   background: #fff;
   padding: 10px 12px;
+  width: 95%;
+  box-sizing: border-box;
+  min-width: 0;
 }
 
 .smart-result-top {
@@ -850,6 +884,8 @@ h1 {
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 8px;
+  flex-wrap: wrap;
+  min-width: 0;
 }
 
 .smart-level {
@@ -880,6 +916,8 @@ h1 {
   font-size: 12px;
   color: #6b7280;
   font-weight: 700;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .smart-evidence-list {
@@ -892,6 +930,7 @@ h1 {
   grid-template-columns: 14px 1fr;
   gap: 8px;
   align-items: start;
+  min-width: 0;
 }
 
 .smart-chevron {
@@ -904,10 +943,14 @@ h1 {
   font-size: 12px;
   color: #6b7280;
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .smart-evidence-preview {
   font-size: 13px;
   color: #1f2937;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 </style>
