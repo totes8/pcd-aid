@@ -78,7 +78,7 @@ import {Users, Globe, Handshake, Settings} from "lucide-vue-next";
 .brand {
     display: flex;
     align-items: center;
-    margin-bottom: 40px;
+    margin-bottom: 28px;
 }
 
 .brand-text {
@@ -94,6 +94,8 @@ import {Users, Globe, Handshake, Settings} from "lucide-vue-next";
 .nav {
     display: flex;
     flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
 }
 
 .nav-item {

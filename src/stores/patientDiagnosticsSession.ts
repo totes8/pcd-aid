@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import type { PatientListItem } from "./patients";
+import { usePatientsStore } from "./patients";
 
 export type NnoEntry = {
   id: string;
@@ -132,6 +133,14 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
   }),
 
   actions: {
+    markDone(patientId: string, key: "nno" | "hsvm" | "if" | "genetics") {
+      const patientsStore = usePatientsStore();
+      const item = patientsStore.byId(patientId);
+      if (!item) return;
+      item[key] = "Done";
+      item.lastUpdate = todayIso();
+    },
+
     ensureFromListItem(item: PatientListItem) {
       if (!this.byPatientId[item.id]) {
         this.byPatientId[item.id] = seededSessionFromListItem(item);
@@ -159,6 +168,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
         date: payload.date ?? todayIso(),
       };
       this.getOrCreate(patientId).nno.unshift(entry);
+      this.markDone(patientId, "nno");
     },
 
     updateNno(patientId: string, id: string, patch: Partial<Omit<NnoEntry, "id">>) {
@@ -166,6 +176,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
       const item = list.find((x) => x.id === id);
       if (!item) return;
       Object.assign(item, patch);
+      this.markDone(patientId, "nno");
     },
 
     listHsvm(patientId: string): HsvmEntry[] {
@@ -184,6 +195,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
         attachment: payload.attachment ?? null,
       };
       this.getOrCreate(patientId).hsvm.unshift(entry);
+      this.markDone(patientId, "hsvm");
     },
 
     updateHsvm(
@@ -195,6 +207,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
       const item = list.find((x) => x.id === id);
       if (!item) return;
       Object.assign(item, patch);
+      this.markDone(patientId, "hsvm");
     },
 
     listIf(patientId: string): IfEntry[] {
@@ -213,6 +226,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
         attachment: payload.attachment ?? null,
       };
       this.getOrCreate(patientId).if.unshift(entry);
+      this.markDone(patientId, "if");
     },
 
     updateIf(patientId: string, id: string, patch: Partial<Omit<IfEntry, "id">>) {
@@ -220,6 +234,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
       const item = list.find((x) => x.id === id);
       if (!item) return;
       Object.assign(item, patch);
+      this.markDone(patientId, "if");
     },
 
     listGenetics(patientId: string): GeneticsEntry[] {
@@ -238,6 +253,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
         attachment: payload.attachment ?? null,
       };
       this.getOrCreate(patientId).genetics.unshift(entry);
+      this.markDone(patientId, "genetics");
     },
 
     updateGenetics(
@@ -249,6 +265,7 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
       const item = list.find((x) => x.id === id);
       if (!item) return;
       Object.assign(item, patch);
+      this.markDone(patientId, "genetics");
     },
   },
 });
