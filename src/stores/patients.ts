@@ -14,7 +14,7 @@ export type PatientListItem = {
   status: PatientStatus;
   hsvm?: "Done" | "Pending" | "N/A" | "Unknown";
   nno?: "Done" | "Pending" | "N/A" | "Unknown";
-  tem?: "Positive" | "Negative" | "N/A";
+  tem?: "Done" | "Pending" | "N/A";
   if?: "Done" | "Pending" | "N/A" | "Unknown";
   genetics?: "Done" | "Pending" | "N/A" | "Unknown";
   dateAdded: string;   // YYYY-MM-DD
@@ -74,7 +74,7 @@ export const usePatientsStore = defineStore("patients", {
     id: payload.id,
     dob: payload.dob,
     age,
-    clinician: payload.clinician ?? "Unknown",
+    clinician: payload.clinician ?? "Janko Mrkvička",
     status: payload.status ?? "Not Diagnosed",
     hsvm: "Unknown",
     nno: "Unknown",
@@ -99,10 +99,10 @@ export const usePatientsStore = defineStore("patients", {
         clinician: "Dr. Smith",
         status: "Confirmed PCD",
         hsvm: "Done",
-        nno: "Pending",
-        tem: "Positive",
+        nno: "Done",
+        tem: "Done",
         if: "Done",
-        genetics: "Unknown",
+        genetics: "Done",
         dateAdded: "2024-01-05",
         lastUpdate: "2024-03-01",
       },
@@ -113,10 +113,24 @@ export const usePatientsStore = defineStore("patients", {
         clinician: "Dr. Smith",
         status: "PCD Unconfirmed",
         hsvm: "Done",
-        nno: "Pending",
-        tem: "N/A",
+        nno: "Done",
+        tem: "Done",
         if: "Done",
-        genetics: "Unknown",
+        genetics: "Done",
+        dateAdded: "2024-01-05",
+        lastUpdate: "2024-03-01",
+      },
+      {
+        id: "0003",
+        dob: "2020-07-18",
+        age: calcAge("2020-07-18"),
+        clinician: "Dr. Smith",
+        status: "Not Diagnosed",
+        hsvm: "Done",
+        nno: "Done",
+        tem: "Pending",
+        if: "Pending",
+        genetics: "Pending",
         dateAdded: "2024-01-05",
         lastUpdate: "2024-03-01",
       }

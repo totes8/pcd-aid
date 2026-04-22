@@ -1,153 +1,316 @@
-<template lang="html">
-    <div>
-        <section class="card">
+<template>
+  <section class="card">
     <div class="card-header">
-      <h3>nNO Result</h3>
-      <div class="card-actions">
-        <button v-if="!editing" class="button button--ghost" @click="editing = true">Edit</button>
-        <button v-else class="button" @click="save">Save</button>
-        <button v-if="editing" class="button button--ghost" @click="cancel">Cancel</button>
+      <div>
+        <h3>nNO</h3>
+        <p class="muted">Measured value only (ppb). Multiple measurements allowed.</p>
+      </div>
+      <button v-if="!adding" class="button button--ghost" @click="startAdd">Add measurement</button>
+    </div>
+
+    <div v-if="adding" class="composer">
+      <label class="field">
+        <span class="label">Value (ppb)</span>
+        <input v-model.number="newValuePpb" type="number" min="0" step="1" class="input" />
+      </label>
+
+      <label class="field">
+        <span class="label">Date</span>
+        <input v-model="newDate" type="date" class="input" />
+      </label>
+
+      <div class="composer-actions">
+        <button class="button button--ghost" @click="cancelAdd">Cancel</button>
+        <button class="button button--accent" :disabled="!canSaveNew" @click="saveNew">Save</button>
       </div>
     </div>
 
-    <div v-if="!editing" class="info-grid">
-      <div class="info-item">
-        <span class="label">Status</span>
-        <span>{{ form.status }}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Value</span>
-        <span>{{ form.value }} {{ form.unit }}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Test Date</span>
-        <span>{{ form.testDate }}</span>
-      </div>
-      <div class="info-item">
-        <span class="label">Method</span>
-        <span>{{ form.method }}</span>
-      </div>
-      <div class="info-item full">
-        <span class="label">Notes</span>
-        <span>{{ form.notes }}</span>
-      </div>
+    <div v-if="entries.length === 0" class="empty">
+      <p class="muted">No nNO measurements yet.</p>
     </div>
 
-    <div v-else class="form-grid">
-      <label class="field">
-        <span class="label">Status</span>
-        <select v-model="form.status" class="input">
-          <option>Positive</option>
-          <option>Negative</option>
-          <option>Pending</option>
-          <option>N/A</option>
-        </select>
-      </label>
+    <div v-else class="list">
+      <div v-for="e in entries" :key="e.id" class="row">
+        <div class="row-main">
+          <div class="value">
+            <span class="value-number">{{ e.valuePpb }}</span>
+            <span class="value-unit">ppb</span>
+          </div>
+          <div class="meta">
+            <span class="meta-pill">Added by {{ e.clinician }}</span>
+            <span class="meta-dot" aria-hidden="true">|</span>
+            <span class="meta-date">{{ e.date }}</span>
+          </div>
+        </div>
 
-      <label class="field">
-        <span class="label">Value</span>
-        <input v-model.number="form.value" type="number" class="input" />
-      </label>
+        <div class="row-actions">
+          <button v-if="editingId !== e.id" class="button button--ghost" @click="startEdit(e.id)">
+            Edit
+          </button>
+        </div>
 
-      <label class="field">
-        <span class="label">Unit</span>
-        <input v-model="form.unit" type="text" class="input" />
-      </label>
-
-      <label class="field">
-        <span class="label">Test Date</span>
-        <input v-model="form.testDate" type="date" class="input" />
-      </label>
-
-      <label class="field">
-        <span class="label">Method</span>
-        <input v-model="form.method" type="text" class="input" />
-      </label>
-
-      <label class="field full">
-        <span class="label">Notes</span>
-        <textarea v-model="form.notes" rows="3" class="input"></textarea>
-      </label>
+        <div v-if="editingId === e.id" class="edit">
+          <label class="field">
+            <span class="label">Value (ppb)</span>
+            <input v-model.number="editValuePpb" type="number" min="0" step="1" class="input" />
+          </label>
+          <label class="field">
+            <span class="label">Date</span>
+            <input v-model="editDate" type="date" class="input" />
+          </label>
+          <div class="edit-actions">
+            <button class="button button--ghost" @click="cancelEdit">Cancel</button>
+            <button class="button button--accent" :disabled="!canSaveEdit" @click="saveEdit">
+              Update
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
-
-    </div>
 </template>
-<script setup>
-    
-import { ref } from "vue";
 
-const editing = ref(false);
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import { usePatientDiagnosticsSessionStore } from "../../stores/patientDiagnosticsSession";
 
-// Replace these with real data or props
-const form = ref({
-  status: "Positive",
-  value: 25,
-  unit: "ppb",
-  testDate: "2026-03-20",
-  method: "Standard",
-  notes: "Consistent with PCD patterns.",
-});
+const props = defineProps<{ patientId: string }>();
 
-function save() {
-  editing.value = false;
+const CURRENT_CLINICIAN = "Janko Mrkvička";
+
+const store = usePatientDiagnosticsSessionStore();
+const entries = computed(() => store.listNno(props.patientId));
+
+const adding = ref(false);
+const newValuePpb = ref<number | null>(null);
+const newDate = ref<string>(new Date().toISOString().slice(0, 10));
+
+const editingId = ref<string | null>(null);
+const editValuePpb = ref<number | null>(null);
+const editDate = ref<string>("");
+
+const canSaveNew = computed(() => typeof newValuePpb.value === "number" && newValuePpb.value >= 0);
+const canSaveEdit = computed(
+  () => typeof editValuePpb.value === "number" && editValuePpb.value >= 0 && !!editingId.value,
+);
+
+function startAdd() {
+  adding.value = true;
+  newValuePpb.value = null;
+  newDate.value = new Date().toISOString().slice(0, 10);
 }
 
-function cancel() {
-  editing.value = false;
+function cancelAdd() {
+  adding.value = false;
+  newValuePpb.value = null;
+}
+
+function saveNew() {
+  if (!canSaveNew.value || newValuePpb.value == null) return;
+  store.addNno(props.patientId, {
+    valuePpb: Math.round(newValuePpb.value),
+    clinician: CURRENT_CLINICIAN,
+    date: newDate.value,
+  });
+  adding.value = false;
+  newValuePpb.value = null;
+}
+
+function startEdit(id: string) {
+  const item = entries.value.find((x) => x.id === id);
+  if (!item) return;
+  editingId.value = id;
+  editValuePpb.value = item.valuePpb;
+  editDate.value = item.date;
+}
+
+function cancelEdit() {
+  editingId.value = null;
+  editValuePpb.value = null;
+  editDate.value = "";
+}
+
+function saveEdit() {
+  if (!canSaveEdit.value || editingId.value == null || editValuePpb.value == null) return;
+  store.updateNno(props.patientId, editingId.value, {
+    valuePpb: Math.round(editValuePpb.value),
+    date: editDate.value,
+  });
+  cancelEdit();
 }
 </script>
-<style lang="css" scoped>
+
+<style scoped>
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
-.card-actions {
+
+.muted {
+  color: #6b7280;
+  font-size: 13px;
+  margin: 2px 0 0;
+}
+
+.composer {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  background: #fafbfe;
+}
+
+.composer-actions {
+  grid-column: 1 / -1;
   display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.empty {
+  margin-top: 12px;
+}
+
+.list {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.row {
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  padding: 12px;
+  background: #fff;
+}
+
+.row-main {
+  display: grid;
+  gap: 6px;
+}
+
+.row-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.value {
+  display: inline-flex;
+  align-items: baseline;
   gap: 8px;
 }
-.info-grid,
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  margin-top: 10px;
+
+.value-number {
+  font-size: 26px;
+  font-weight: 800;
+  color: #111827;
+  letter-spacing: -0.02em;
 }
+
+.value-unit {
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.meta-pill {
+  background: #f4f6f9;
+  border: 1px solid #e6e9ef;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.meta-dot {
+  opacity: 0.6;
+}
+
+.edit {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed #eef1f6;
+}
+
+.edit-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .field {
   display: grid;
   gap: 6px;
 }
-.full {
-  grid-column: 1 / -1;
-}
+
 .label {
   font-size: 12px;
   color: #6b7280;
-  margin-right: 4px;
 }
+
 .input {
   border: 1px solid #e1e5ea;
+  background: #fff;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(75, 108, 255, 0.12);
 }
 
 .button {
   padding: 6px 12px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
   border: 1px solid #e1e5ea;
-  background-color: white;
+  background: #fff;
+  border-radius: 10px;
+  cursor: pointer;
 }
 
-.button:hover {
-  background-color: whitesmoke;
+.button--ghost {
+  background: transparent;
 }
 
-.info-item {
-  display: grid;
-  gap: 2px;
+.button--ghost:hover {
+  background: var(--white-hover);
 }
 
+.button--accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.button--accent:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 720px) {
+  .composer,
+  .edit {
+    grid-template-columns: 1fr;
+  }
+}
 </style>

@@ -14,11 +14,11 @@
 
     <div class="diag-panel">
       <div v-if="activeTab === 'nNO'">
-        <nNOCard />
+        <nNOCard :patientId="patientId" />
       </div>
 
       <div v-else-if="activeTab === 'HSVM'">
-        <HSVMCard />
+        <HSVMCard :patientId="patientId" />
       </div>
 
       <div v-else-if="activeTab === 'TEM'">
@@ -26,11 +26,11 @@
       </div>
 
       <div v-else-if="activeTab === 'IF'">
-        <IFCard />
+        <IFCard :patientId="patientId" />
       </div>
 
       <div v-else>
-        <GeneticsCard />
+        <GeneticsCard :patientId="patientId" />
       </div>
     </div>
   </section>
@@ -43,6 +43,8 @@ import HSVMCard from "./HSVMCard.vue";
 import TEMCard from "./TEMCard.vue";
 import IFCard from "./IFCard.vue";
 import GeneticsCard from "./GeneticsCard.vue";
+
+defineProps<{ patientId: string }>();
 
 const tabs = ["nNO", "HSVM", "TEM", "IF", "Genetics"] as const;
 const activeTab = ref<(typeof tabs)[number]>("nNO");

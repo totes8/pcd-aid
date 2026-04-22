@@ -179,7 +179,7 @@
         </section>
         <section v-else-if="activeTab === 'diagnostic'" class="tab-panel">
           <!-- Diagnostic Test content -->
-           <DiagnosticTests />
+           <DiagnosticTests :patientId="patientId" />
         </section>
         <section v-else-if="activeTab === 'ai'" class="tab-panel">
           <!-- AI Assistant content -->
@@ -197,10 +197,36 @@
         <section class="card">
           <div class="notes-header">
             <h2>Notes</h2>
-            <button class="button button--ghost">Add note</button>
+            <button
+              v-if="!addingNote"
+              class="button button--ghost add-note-button"
+              @click="startAddNote"
+            >
+              Add note
+            </button>
+          </div>
+
+          <div v-if="addingNote" class="note-composer">
+            <textarea
+              v-model="newNoteText"
+              class="input"
+              rows="4"
+              placeholder="Write a note..."
+            ></textarea>
+            <div class="composer-actions">
+              <button class="button button--ghost" @click="cancelAddNote">Cancel</button>
+              <button
+                class="button--accent"
+                :disabled="!newNoteText.trim()"
+                @click="saveNote"
+              >
+                Save
+              </button>
+            </div>
           </div>
 
           <div class="notes-list">
+            <p v-if="notes.length === 0" class="muted empty-notes">No notes yet.</p>
             <div class="note" v-for="n in notes" :key="n.id">
               <div class="note-meta">
                 <span class="note-author">{{ n.author }}</span>
@@ -283,10 +309,10 @@ function isValidDob(dob: string): boolean {
 const patient = reactive({
   dob: "1989-07-14",
   age: calcAge("1989-07-14"),
-  clinician: "Dr. Smith",
+  clinician: "Janko Mrkvička",
   status: "Not Diagnosed" as PatientStatus,
-  siblings: 2,
-  ageAtDiagnosis: 12,
+  siblings: 0,
+  ageAtDiagnosis: 0,
   bloodRelativesWithPCD: 0,
   anamnesis: {
     picadar: 7,
@@ -389,15 +415,36 @@ function saveBasicInfo() {
   }
 }
 
-const notes = [
-  {
-    id: "n1",
-    author: "Dr. Smith",
-    date: "2026-03-20",
-    text: "Initial consultation.",
-  },
-  { id: "n2", author: "Lab", date: "2026-03-21", text: "TEM pending." },
-];
+type NoteItem = { id: string; author: string; date: string; text: string };
+
+const notes = ref<NoteItem[]>([]);
+const addingNote = ref(false);
+const newNoteText = ref("");
+
+function startAddNote() {
+  addingNote.value = true;
+  newNoteText.value = "";
+}
+
+function cancelAddNote() {
+  addingNote.value = false;
+  newNoteText.value = "";
+}
+
+function saveNote() {
+  const text = newNoteText.value.trim();
+  if (!text) return;
+
+  notes.value.unshift({
+    id: `n_${Date.now()}`,
+    author: patient.clinician || "Janko Mrkvička",
+    date: new Date().toISOString().slice(0, 10),
+    text,
+  });
+
+  addingNote.value = false;
+  newNoteText.value = "";
+}
 </script>
 
 <style scoped>
@@ -479,12 +526,17 @@ h2 {
   display: grid;
   grid-template-columns: 5fr 2fr;
   gap: 16px;
+  align-items: start;
 }
 
 .profile-main,
 .profile-notes {
   display: grid;
   gap: 16px;
+}
+
+.profile-notes {
+  align-self: start;
 }
 
 .card {
@@ -687,6 +739,27 @@ h2 {
   align-items: center;
 }
 
+
+.note-composer {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  background: #fafbfe;
+}
+
+.composer-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.empty-notes {
+  margin: 10px 0 0;
+}
+
 .note {
   border-top: 1px solid #eef1f6;
   padding: 10px 0;
@@ -717,6 +790,11 @@ h2 {
   border-radius: 8px;
   border: 1px solid #e1e5ea;
   background: #fff;
+  cursor: pointer;
+}
+
+.button:hover {
+  background: var(--white-hover);
 }
 
 .button:disabled {
@@ -726,6 +804,19 @@ h2 {
 
 .button--ghost {
   background: transparent;
+}
+
+.button--accent {
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: var(--accent);
+  border: 1px solid #e1e5ea;
+  color: #fff;
+}
+
+.button--accent:hover {
+  background-color: var(--accent-hover);
 }
 
 @media (max-width: 960px) {

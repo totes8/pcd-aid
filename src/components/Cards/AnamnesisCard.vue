@@ -7,7 +7,7 @@ const props = defineProps<{
 }>();
 
 const editing = ref(false);
-const activeSubtab = ref<"picadar" | "clinicIndex" | "postnatal" | "anamnestic">(
+const activeSubtab = ref<"picadar" | "clinicalIndex" | "postnatal" | "anamnestic">(
   "picadar",
 );
 
@@ -68,9 +68,41 @@ watch(
 );
 
 watch(
+  () => anamnesis.otherComorbidities,
+  (val) => {
+    if (val === "No") anamnesis.otherComorbiditiesDetails = "";
+  },
+);
+
+watch(
+  () => anamnesis.congenitalHeartDefect,
+  (val) => {
+    if (val !== "Yes") anamnesis.congenitalHeartDefectDetails = "";
+  },
+);
+
+watch(
   () => picadarScore.value,
   (score) => {
     anamnesis.picadar = score;
+  },
+  { immediate: true },
+);
+
+const clinicalIndexScore = computed(() => {
+  const answers = anamnesis.clinicalIndexAnswers;
+  const keys = Object.keys(answers) as (keyof typeof answers)[];
+  let score = 0;
+  for (const k of keys) {
+    if (answers[k] === "Yes") score += 1;
+  }
+  return score;
+});
+
+watch(
+  () => clinicalIndexScore.value,
+  (score) => {
+    anamnesis.clinicalIndex = score;
   },
   { immediate: true },
 );
@@ -84,7 +116,7 @@ function cloneCurrent(): AnamnesisModel {
 
 function applySnapshot(s: AnamnesisModel) {
   anamnesis.picadar = s.picadar;
-  anamnesis.clinicIndex = s.clinicIndex;
+  anamnesis.clinicalIndex = s.clinicalIndex;
   anamnesis.picadarAnswers.wetCough = s.picadarAnswers.wetCough;
   anamnesis.picadarAnswers.born = s.picadarAnswers.born;
   anamnesis.picadarAnswers.neonatalChestSymptoms = s.picadarAnswers.neonatalChestSymptoms;
@@ -93,13 +125,36 @@ function applySnapshot(s: AnamnesisModel) {
   anamnesis.picadarAnswers.congenitalHeartDefect = s.picadarAnswers.congenitalHeartDefect;
   anamnesis.picadarAnswers.perennialRhinitis = s.picadarAnswers.perennialRhinitis;
   anamnesis.picadarAnswers.chronicEarOrHearingSymptoms = s.picadarAnswers.chronicEarOrHearingSymptoms;
-  anamnesis.situsInversus = s.situsInversus;
-  anamnesis.fertilityIssues = s.fertilityIssues;
+  anamnesis.clinicalIndexAnswers.respiratoryDifficultiesAfterBirth =
+    s.clinicalIndexAnswers.respiratoryDifficultiesAfterBirth;
+  anamnesis.clinicalIndexAnswers.earlyRhinitisOrMucus = s.clinicalIndexAnswers.earlyRhinitisOrMucus;
+  anamnesis.clinicalIndexAnswers.pneumonia = s.clinicalIndexAnswers.pneumonia;
+  anamnesis.clinicalIndexAnswers.threePlusBronchitisEpisodes =
+    s.clinicalIndexAnswers.threePlusBronchitisEpisodes;
+  anamnesis.clinicalIndexAnswers.chronicOtitisOrThreePlusAcuteOtitis =
+    s.clinicalIndexAnswers.chronicOtitisOrThreePlusAcuteOtitis;
+  anamnesis.clinicalIndexAnswers.yearRoundNasalDischargeOrObstruction =
+    s.clinicalIndexAnswers.yearRoundNasalDischargeOrObstruction;
+  anamnesis.clinicalIndexAnswers.antibioticsForAuriThreePlus =
+    s.clinicalIndexAnswers.antibioticsForAuriThreePlus;
+  anamnesis.organPositionDisorder = s.organPositionDisorder;
+  anamnesis.congenitalHeartDefect = s.congenitalHeartDefect;
+  anamnesis.congenitalHeartDefectDetails = s.congenitalHeartDefectDetails;
+  anamnesis.ciliaryDisorderInCns = s.ciliaryDisorderInCns;
   anamnesis.retinitisPigmentosa = s.retinitisPigmentosa;
+  anamnesis.renalProblems = s.renalProblems;
+  anamnesis.fertilityDisorder = s.fertilityDisorder;
+  anamnesis.otherComorbidities = s.otherComorbidities;
+  anamnesis.otherComorbiditiesDetails = s.otherComorbiditiesDetails;
   anamnesis.postnatal.gestationAge = s.postnatal.gestationAge;
+  anamnesis.postnatal.neonatalRds = s.postnatal.neonatalRds;
+  anamnesis.postnatal.cough = s.postnatal.cough;
+  anamnesis.postnatal.rhinitis = s.postnatal.rhinitis;
   anamnesis.postnatal.pneumonia = s.postnatal.pneumonia;
+  anamnesis.postnatal.hydrocephalus = s.postnatal.hydrocephalus;
+  anamnesis.postnatal.hospitalizationAtNeoJip = s.postnatal.hospitalizationAtNeoJip;
   anamnesis.postnatal.oxygenTherapy = s.postnatal.oxygenTherapy;
-  anamnesis.postnatal.hydrocephalia = s.postnatal.hydrocephalia;
+  anamnesis.postnatal.lungVentilation = s.postnatal.lungVentilation;
   anamnesis.notes = s.notes;
 }
 
@@ -126,7 +181,7 @@ function cancel() {
       <h3>Anamnesis</h3>
       <div class="card-actions">
         <button v-if="!editing" class="button button--ghost" @click="startEdit">Edit</button>
-        <button v-else class="button" @click="save">Save</button>
+        <button v-else class="save-button" @click="save">Save</button>
         <button v-if="editing" class="button button--ghost" @click="cancel">Cancel</button>
       </div>
     </div>
@@ -141,10 +196,10 @@ function cancel() {
       </button>
       <button
         class="subtab"
-        :class="{ 'subtab--active': activeSubtab === 'clinicIndex' }"
-        @click="activeSubtab = 'clinicIndex'"
+        :class="{ 'subtab--active': activeSubtab === 'clinicalIndex' }"
+        @click="activeSubtab = 'clinicalIndex'"
       >
-        Clinic Index
+        Clinical Index
       </button>
       <button
         class="subtab"
@@ -420,100 +475,389 @@ function cancel() {
       </div>
     </div>
 
-    <!-- Clinic Index -->
-    <div v-else-if="activeSubtab === 'clinicIndex'">
-      <div v-if="!editing" class="info-grid">
-        <div class="info-item full">
-          <span class="label">Clinic Index</span><span>{{ anamnesis.clinicIndex }}</span>
+    <!-- Clinical Index -->
+    <div v-else-if="activeSubtab === 'clinicalIndex'">
+      <div class="score-row">
+        <span class="label">Current Clinical Index score</span>
+        <span class="score-pill">{{ clinicalIndexScore }}</span>
+      </div>
+
+      <div v-if="!editing" class="qa">
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Did the child manifest with significant respiratory difficulties with breathing after birth?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.respiratoryDifficultiesAfterBirth ?? "—" }}</div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Did the child have rhinitis or excessive mucus production in the first 2 months of life?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.earlyRhinitisOrMucus ?? "—" }}</div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">Did the child suffer from pneumonia?</div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.pneumonia ?? "—" }}</div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">Did the child present with 3 or more episodes of bronchitis?</div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.threePlusBronchitisEpisodes ?? "—" }}</div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Was the child treated for chronic secretoric otitis or suffered from &gt;3 episodes of acute otitis?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.chronicOtitisOrThreePlusAcuteOtitis ?? "—" }}</div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Does the child have a year-round nasal discharge or nasal obstruction?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.yearRoundNasalDischargeOrObstruction ?? "—" }}</div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Was the child treated with antibiotics for acute upper respiratory tract infection &gt;3 times?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="answer">{{ anamnesis.clinicalIndexAnswers.antibioticsForAuriThreePlus ?? "—" }}</div>
         </div>
       </div>
-      <div v-else class="form-grid">
-        <label class="field full">
-          <span class="label">Clinic Index</span>
-          <input
-            v-model.number="anamnesis.clinicIndex"
-            type="number"
-            min="0"
-            step="1"
-            class="input"
-          />
-        </label>
+
+      <div v-else class="qa">
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Did the child manifest with significant respiratory difficulties with breathing after birth?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.respiratoryDifficultiesAfterBirth" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.respiratoryDifficultiesAfterBirth" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Did the child have rhinitis or excessive mucus production in the first 2 months of life?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.earlyRhinitisOrMucus" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.earlyRhinitisOrMucus" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">Did the child suffer from pneumonia?</div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.pneumonia" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.pneumonia" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">Did the child present with 3 or more episodes of bronchitis?</div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.threePlusBronchitisEpisodes" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.threePlusBronchitisEpisodes" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Was the child treated for chronic secretoric otitis or suffered from &gt;3 episodes of acute otitis?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.chronicOtitisOrThreePlusAcuteOtitis" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.chronicOtitisOrThreePlusAcuteOtitis" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Does the child have a year-round nasal discharge or nasal obstruction?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.yearRoundNasalDischargeOrObstruction" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.yearRoundNasalDischargeOrObstruction" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
+
+        <div class="question">
+          <div class="question-head">
+            <div class="question-title">
+              Was the child treated with antibiotics for acute upper respiratory tract infection &gt;3 times?
+            </div>
+            <div class="points">+1</div>
+          </div>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.antibioticsForAuriThreePlus" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.clinicalIndexAnswers.antibioticsForAuriThreePlus" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Postnatal -->
     <div v-else-if="activeSubtab === 'postnatal'">
-      <div v-if="!editing" class="info-grid">
-        <div class="info-item">
-          <span class="label">Gestation Age</span><span>{{ anamnesis.postnatal.gestationAge }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Pneumonia</span><span>{{ anamnesis.postnatal.pneumonia }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Oxygen Therapy</span><span>{{ anamnesis.postnatal.oxygenTherapy }}</span>
-        </div>
-        <div class="info-item">
-          <span class="label">Hydrocephalia</span><span>{{ anamnesis.postnatal.hydrocephalia }}</span>
-        </div>
-      </div>
-
-      <div v-else class="form-grid">
-        <label class="field">
+      <div class="postnatal">
+        <div class="gestation">
           <span class="label">Gestation Age</span>
-          <input v-model="anamnesis.postnatal.gestationAge" type="text" class="input" />
-        </label>
+          <span v-if="!editing" class="gestation-value">{{ anamnesis.postnatal.gestationAge }}</span>
+          <input
+            v-else
+            v-model="anamnesis.postnatal.gestationAge"
+            type="text"
+            class="input"
+            placeholder="e.g. 38 weeks"
+          />
+        </div>
 
-        <label class="field">
-          <span class="label">Pneumonia</span>
-          <select v-model="anamnesis.postnatal.pneumonia" class="input">
-            <option>Yes</option>
-            <option>No</option>
-            <option>Unknown</option>
-          </select>
-        </label>
+        <div class="postnatal-list">
+          <div class="postnatal-row">
+            <span class="postnatal-label">Neonatal RDS</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.neonatalRds }}</span>
+            <select v-else v-model="anamnesis.postnatal.neonatalRds" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
 
-        <label class="field">
-          <span class="label">Oxygen Therapy</span>
-          <select v-model="anamnesis.postnatal.oxygenTherapy" class="input">
-            <option>Yes</option>
-            <option>No</option>
-            <option>Unknown</option>
-          </select>
-        </label>
+          <div class="postnatal-row">
+            <span class="postnatal-label">Cough</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.cough }}</span>
+            <select v-else v-model="anamnesis.postnatal.cough" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
 
-        <label class="field">
-          <span class="label">Hydrocephalia</span>
-          <select v-model="anamnesis.postnatal.hydrocephalia" class="input">
-            <option>Yes</option>
-            <option>No</option>
-            <option>Unknown</option>
-          </select>
-        </label>
+          <div class="postnatal-row">
+            <span class="postnatal-label">Rhinitis</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.rhinitis }}</span>
+            <select v-else v-model="anamnesis.postnatal.rhinitis" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+
+          <div class="postnatal-row">
+            <span class="postnatal-label">Pneumonia</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.pneumonia }}</span>
+            <select v-else v-model="anamnesis.postnatal.pneumonia" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+
+          <div class="postnatal-row">
+            <span class="postnatal-label">Hydrocephalus</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.hydrocephalus }}</span>
+            <select v-else v-model="anamnesis.postnatal.hydrocephalus" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+
+          <div class="postnatal-row">
+            <span class="postnatal-label">Hospitalization at neoJIP</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.hospitalizationAtNeoJip }}</span>
+            <select v-else v-model="anamnesis.postnatal.hospitalizationAtNeoJip" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+
+          <div class="postnatal-row">
+            <span class="postnatal-label">Oxygen therapy</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.oxygenTherapy }}</span>
+            <select v-else v-model="anamnesis.postnatal.oxygenTherapy" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+
+          <div class="postnatal-row">
+            <span class="postnatal-label">Lung ventilation</span>
+            <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.lungVentilation }}</span>
+            <select v-else v-model="anamnesis.postnatal.lungVentilation" class="input input--compact">
+              <option>Yes</option>
+              <option>No</option>
+              <option>Unknown</option>
+            </select>
+          </div>
+        </div>
       </div>
     </div>
 
     <!-- Anamnestic -->
     <div v-else>
-      <div v-if="!editing" class="info-grid">
-        <div class="info-item">
-          <span class="label">Situs Inversus</span><span>{{ anamnesis.situsInversus }}</span>
+      <div v-if="!editing" class="postnatal-list">
+        <div class="postnatal-row">
+          <span class="postnatal-label">Organ position disorder</span>
+          <span class="postnatal-value">{{ anamnesis.organPositionDisorder }}</span>
         </div>
-        <div class="info-item">
-          <span class="label">Fertility Issues</span><span>{{ anamnesis.fertilityIssues }}</span>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Congenital heart defect</span>
+          <span class="postnatal-value">
+            {{ anamnesis.congenitalHeartDefect }}
+            <span v-if="anamnesis.congenitalHeartDefect === 'Yes' && anamnesis.congenitalHeartDefectDetails">
+              — {{ anamnesis.congenitalHeartDefectDetails }}
+            </span>
+          </span>
         </div>
-        <div class="info-item">
-          <span class="label">Retinitis Pigmentosa</span><span>{{ anamnesis.retinitisPigmentosa }}</span>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Ciliary disorder in the CNS</span>
+          <span class="postnatal-value">{{ anamnesis.ciliaryDisorderInCns }}</span>
         </div>
-        <div class="info-item full">
-          <span class="label">Notes</span><span>{{ anamnesis.notes }}</span>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Retinitis pigmentosa</span>
+          <span class="postnatal-value">{{ anamnesis.retinitisPigmentosa }}</span>
+        </div>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Renal problems</span>
+          <span class="postnatal-value">{{ anamnesis.renalProblems }}</span>
+        </div>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Fertility disorder</span>
+          <span class="postnatal-value">{{ anamnesis.fertilityDisorder }}</span>
+        </div>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Other comorbidities</span>
+          <span class="postnatal-value">
+            {{ anamnesis.otherComorbidities ?? "—" }}
+            <span v-if="anamnesis.otherComorbidities === 'Yes' && anamnesis.otherComorbiditiesDetails">
+              — {{ anamnesis.otherComorbiditiesDetails }}
+            </span>
+          </span>
         </div>
       </div>
 
       <div v-else class="form-grid">
         <label class="field">
-          <span class="label">Situs Inversus</span>
-          <select v-model="anamnesis.situsInversus" class="input">
+          <span class="label">Organ position disorder</span>
+          <select v-model="anamnesis.organPositionDisorder" class="input">
+            <option>Not present</option>
+            <option>Situs inversus</option>
+            <option>Heterotaxy</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">Congenital heart defect</span>
+          <select v-model="anamnesis.congenitalHeartDefect" class="input">
+            <option>Yes</option>
+            <option>No</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <label v-if="anamnesis.congenitalHeartDefect === 'Yes'" class="field full">
+          <span class="label">What defect?</span>
+          <input v-model="anamnesis.congenitalHeartDefectDetails" type="text" class="input" placeholder="Describe the defect" />
+        </label>
+
+        <label class="field">
+          <span class="label">Ciliary disorder in the CNS</span>
+          <select v-model="anamnesis.ciliaryDisorderInCns" class="input">
             <option>Yes</option>
             <option>No</option>
             <option>Unknown</option>
@@ -521,16 +865,7 @@ function cancel() {
         </label>
 
         <label class="field">
-          <span class="label">Fertility Issues</span>
-          <select v-model="anamnesis.fertilityIssues" class="input">
-            <option>Yes</option>
-            <option>No</option>
-            <option>Unknown</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span class="label">Retinitis Pigmentosa</span>
+          <span class="label">Retinitis pigmentosa</span>
           <select v-model="anamnesis.retinitisPigmentosa" class="input">
             <option>Yes</option>
             <option>No</option>
@@ -538,9 +873,42 @@ function cancel() {
           </select>
         </label>
 
-        <label class="field full">
-          <span class="label">Notes</span>
-          <textarea v-model="anamnesis.notes" rows="3" class="input"></textarea>
+        <label class="field">
+          <span class="label">Renal problems</span>
+          <select v-model="anamnesis.renalProblems" class="input">
+            <option>Yes</option>
+            <option>No</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">Fertility disorder</span>
+          <select v-model="anamnesis.fertilityDisorder" class="input">
+            <option>Not present</option>
+            <option>Subfertility</option>
+            <option>Infertility</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">Other comorbidities</span>
+          <div class="options">
+            <label class="radio">
+              <input v-model="anamnesis.otherComorbidities" type="radio" value="Yes" />
+              Yes
+            </label>
+            <label class="radio">
+              <input v-model="anamnesis.otherComorbidities" type="radio" value="No" />
+              No
+            </label>
+          </div>
+        </label>
+
+        <label v-if="anamnesis.otherComorbidities === 'Yes'" class="field full">
+          <span class="label">Which comorbidities?</span>
+          <textarea v-model="anamnesis.otherComorbiditiesDetails" rows="3" class="input" placeholder="List other comorbidities"></textarea>
         </label>
       </div>
     </div>
@@ -566,7 +934,7 @@ h3 {
   justify-content: space-between;
   gap: 12px;
   padding-bottom: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 6px;
 }
 
 .card-actions {
@@ -662,6 +1030,74 @@ h3 {
 .answer {
   color: #4b5563;
   font-weight: 600;
+}
+
+.save-button { 
+  background-color: var(--accent);
+  border-color: #4b6cff;
+  color: white;
+padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid #e1e5ea;
+}
+
+.save-button:hover {
+  background-color: var(--accent-hover);
+}
+
+.postnatal {
+  display: grid;
+  gap: 12px;
+}
+
+.gestation {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.gestation-value {
+  color: #111827;
+  font-weight: 650;
+}
+
+.postnatal-list {
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.postnatal-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid #eef1f6;
+}
+
+.postnatal-row:first-child {
+  border-top: none;
+}
+
+.postnatal-label {
+  color: #111827;
+  font-weight: 600;
+}
+
+.postnatal-value {
+  color: #4b5563;
+  font-weight: 650;
+}
+
+.postnatal-row .input--compact {
+  max-width: 180px;
 }
 
 .subtabs {

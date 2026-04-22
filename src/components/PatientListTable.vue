@@ -54,6 +54,10 @@
         <button class="button button--ghost" @click="resetFilters"><RotateCcw :size="16"/>
           Reset filters
         </button>
+        <button class="button smart-search-button" @click="showSmartSearch = !showSmartSearch">
+          <Sparkles :size="16" />
+          Smart search
+        </button>
         <button
           class="advanced-search-button button"
           @click="showAdvanced = !showAdvanced"
@@ -98,6 +102,34 @@
         </div>
       </div>
 
+      <!-- SMART SEARCH (Wizard-of-Oz stub) -->
+      <div v-if="showSmartSearch" class="smart-search">
+        <div class="smart-search__header">
+          <h3>Smart search</h3>
+          <p class="muted">
+            Describe what you're looking for (we'll rank matching patients next).
+          </p>
+        </div>
+
+        <textarea
+          v-model="smartPrompt"
+          class="input smart-search__input"
+          rows="4"
+          placeholder="e.g. Patients with high PICADAR score and neonatal RDS..."
+        ></textarea>
+
+        <div class="smart-search__actions">
+          <button class="button button--ghost" @click="smartPrompt = ''">Clear</button>
+          <button class="button button--accent" :disabled="!smartPrompt.trim()" @click="runSmartSearch">
+            Search
+          </button>
+        </div>
+
+        <p v-if="smartSearchApplied && lastSmartPrompt" class="muted smart-search__stub">
+          Ranked by: "{{ lastSmartPrompt }}"
+        </p>
+      </div>
+
       <!-- PATIENTS TABLE  -->
 
       <table class="table">
@@ -129,7 +161,8 @@
         </thead>
 
         <tbody>
-          <tr v-for="p in filteredPatients" :key="p.id" @click="goToPatient(p.id)" class="row-click">
+          <template v-for="p in displayedPatients" :key="p.id">
+          <tr @click="goToPatient(p.id)" class="row-click">
             <td class="sticky-left id">{{ p.id }}</td>
             <td>
               <div>{{ p.dob }}</div>
@@ -158,6 +191,33 @@
             <td>{{ p.dateAdded }}</td>
             <td>{{ p.lastUpdate }}</td>
           </tr>
+          <tr v-if="smartSearchApplied && smartResultById[p.id]" class="smart-result-row">
+            <td :colspan="10" class="smart-result-cell">
+              <div class="smart-result">
+                <div class="smart-result-top">
+                  <span class="smart-level" :data-level="smartResultById[p.id].level">
+                    {{ smartResultById[p.id].level }}
+                  </span>
+                  <span class="smart-score">Relevance {{ smartResultById[p.id].score }}</span>
+                </div>
+
+                <div class="smart-evidence-list">
+                  <div
+                    v-for="(ev, idx) in smartResultById[p.id].evidences"
+                    :key="`${p.id}-ev-${idx}`"
+                    class="smart-evidence"
+                  >
+                    <span class="smart-chevron">›</span>
+                    <div>
+                      <div class="smart-evidence-title">{{ ev.label }}</div>
+                      <div class="smart-evidence-preview">{{ ev.preview }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </td>
+          </tr>
+          </template>
         </tbody>
       </table>
     </div>
@@ -168,7 +228,7 @@
 import { computed, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { usePatientsStore } from "../stores/patients";
-import { ArrowDown, RotateCcw } from "lucide-vue-next";
+import { ArrowDown, RotateCcw, Sparkles } from "lucide-vue-next";
 
 const patientsStore = usePatientsStore();
 const router = useRouter();
@@ -181,12 +241,36 @@ const ageMin = ref<number | null>(null);
 const ageMax = ref<number | null>(null);
 const temFilter = ref<"" | "Positive" | "Negative" | "N/A">("");
 
+const showSmartSearch = ref(false);
+const smartPrompt = ref("");
+const lastSmartPrompt = ref("");
+const smartSearchApplied = ref(false);
+
+type SmartMatchLevel = "High match" | "Medium match" | "Low match";
+type SmartEvidence = { label: string; preview: string };
+type SmartResult = { score: number; level: SmartMatchLevel; evidences: SmartEvidence[] };
+const smartResultById = ref<Record<string, SmartResult>>({});
+
 const showModal = ref(false);
 const newId = ref("");
 const newDob = ref("");
 
 function openModal() {
   showModal.value = true;
+}
+
+function runSmartSearch() {
+  const prompt = smartPrompt.value.trim();
+  if (!prompt) return;
+
+  const results: Record<string, SmartResult> = {};
+  for (const patient of filteredPatients.value) {
+    results[patient.id] = buildSmartResult(patient, prompt);
+  }
+
+  smartResultById.value = results;
+  lastSmartPrompt.value = prompt;
+  smartSearchApplied.value = true;
 }
 
 function closeModal() {
@@ -206,6 +290,7 @@ const filteredPatients = computed(() => {
   let items = patientsStore.items;
 
   if (q) items = items.filter((p) => p.id.toLowerCase().includes(q));
+  if (statusFilter.value) items = items.filter((p) => p.status === statusFilter.value);
 
   if (ageMin.value != null) items = items.filter((p) => p.age >= ageMin.value!);
   if (ageMax.value != null) items = items.filter((p) => p.age <= ageMax.value!);
@@ -213,6 +298,18 @@ const filteredPatients = computed(() => {
   if (temFilter.value) items = items.filter((p) => p.tem === temFilter.value);
 
   return items;
+});
+
+const displayedPatients = computed(() => {
+  const items = [...filteredPatients.value];
+  if (!smartSearchApplied.value) return items;
+
+  return items.sort((a, b) => {
+    const scoreA = smartResultById.value[a.id]?.score ?? 0;
+    const scoreB = smartResultById.value[b.id]?.score ?? 0;
+    if (scoreA === scoreB) return a.id.localeCompare(b.id);
+    return scoreB - scoreA;
+  });
 });
 
 const statuses = ["Not Diagnosed", "Highly Suspected", "Confirmed PCD", "PCD Unconfirmed"];
@@ -263,6 +360,10 @@ function resetFilters() {
   ageMin.value = null;
   ageMax.value = null;
   temFilter.value = "";
+  smartSearchApplied.value = false;
+  smartResultById.value = {};
+  lastSmartPrompt.value = "";
+  smartPrompt.value = "";
 }
 
 function goToPatient(id: string) {
@@ -272,6 +373,109 @@ function goToPatient(id: string) {
 onMounted(() => {
   patientsStore.fetchList();
 });
+
+function buildSmartResult(patient: any, prompt: string): SmartResult {
+  const normalized = prompt.toLowerCase();
+  let score = 0;
+  const evidences: SmartEvidence[] = [];
+
+  const hasAny = (...words: string[]) => words.some((w) => normalized.includes(w));
+
+  if (hasAny("nno", "nitric oxide")) {
+    score += 3;
+    evidences.push({
+      label: "nNO signal",
+      preview: `nNO workflow state: ${patient.nno ?? "Unknown"}.`,
+    });
+    if (hasAny("low", "reduced")) {
+      score += patient.nno === "Done" ? 2 : 1;
+      evidences.push({
+        label: "Low nNO cue",
+        preview: patient.nno === "Done"
+          ? "nNO is completed; measured ppb can be inspected in diagnostic entries."
+          : "nNO measurement is not completed yet; low-value confirmation pending.",
+      });
+    }
+  }
+
+  if (hasAny("tem", "inconclusive", "unclear ultrastructure")) {
+    score += 2;
+    if (patient.tem === "N/A") score += 2;
+    evidences.push({
+      label: "TEM cue",
+      preview: patient.tem === "N/A"
+        ? "TEM currently marked as N/A, which can indicate unresolved or incomplete evidence."
+        : `TEM state is ${patient.tem}.`,
+    });
+  }
+
+  if (hasAny("hsvm", "video microscopy")) {
+    score += 2;
+    evidences.push({
+      label: "HSVM cue",
+      preview: `HSVM state: ${patient.hsvm ?? "Unknown"}.`,
+    });
+  }
+
+  if (hasAny("genetic", "mutation", "variant")) {
+    score += 2;
+    evidences.push({
+      label: "Genetics cue",
+      preview: `Genetics state: ${patient.genetics ?? "Unknown"}.`,
+    });
+  }
+
+  if (hasAny("if", "immunofluorescence", "staining")) {
+    score += 2;
+    evidences.push({
+      label: "IF cue",
+      preview: `IF state: ${patient.if ?? "Unknown"}.`,
+    });
+  }
+
+  if (hasAny("confirmed", "definite")) {
+    if (patient.status === "Confirmed PCD") score += 4;
+    evidences.push({
+      label: "Diagnosis status",
+      preview: `Patient status is "${patient.status}".`,
+    });
+  }
+
+  if (hasAny("suspected", "probable")) {
+    if (patient.status === "Highly Suspected") score += 4;
+    evidences.push({
+      label: "Suspicion status",
+      preview: `Patient status is "${patient.status}".`,
+    });
+  }
+
+  if (hasAny("not diagnosed", "undiagnosed")) {
+    if (patient.status === "Not Diagnosed") score += 4;
+    evidences.push({
+      label: "Diagnostic phase",
+      preview: `Patient status is "${patient.status}".`,
+    });
+  }
+
+  if (hasAny("recent", "latest", "updated")) {
+    score += 2;
+    evidences.push({
+      label: "Recency",
+      preview: `Last update: ${patient.lastUpdate}.`,
+    });
+  }
+
+  if (evidences.length === 0) {
+    score += 1;
+    evidences.push({
+      label: "General profile fit",
+      preview: `Status "${patient.status}", TEM "${patient.tem}", nNO "${patient.nno}".`,
+    });
+  }
+
+  const level: SmartMatchLevel = score >= 7 ? "High match" : score >= 4 ? "Medium match" : "Low match";
+  return { score, level, evidences: evidences.slice(0, 3) };
+}
 </script>
 
 <style scoped lang="css">
@@ -320,7 +524,7 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 4px;
 }
 
 .patient_list__search_bar {
@@ -379,7 +583,10 @@ tbody td {
   vertical-align: top;
 }
 
-
+h1 {
+  padding: 0;
+  margin: 0;
+}
 
 .button {
   border: none;
@@ -552,5 +759,155 @@ tbody td {
   align-items: center;
   gap: 12px;
   margin-right: 16px;
+}
+
+.smart-search-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--accent);
+  color: var(--white);
+}
+
+.smart-search {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid #eef1f6;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fafbff 0%, #ffffff 100%);
+}
+
+.smart-search__header h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.smart-search__header .muted {
+  margin: 4px 0 0;
+}
+
+.smart-search__input {
+  margin-top: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  min-height: 110px;
+  border-radius: 12px;
+  padding: 12px 12px;
+  line-height: 1.4;
+  background: #fff;
+  border: 1px solid #e1e5ea;
+}
+
+.smart-search__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(75, 108, 255, 0.12);
+}
+
+.smart-search__actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.smart-search__stub {
+  margin: 10px 0 0;
+}
+
+.button--accent {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.button--accent:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.smart-result-row td {
+  padding-top: 0;
+  background: #fbfcff;
+}
+
+.smart-result-cell {
+  border-bottom: 1px solid #eef1f6;
+}
+
+.smart-result {
+  margin: 2px 0 10px;
+  border: 1px solid #e9edf7;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 12px;
+}
+
+.smart-result-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.smart-level {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.smart-level[data-level="High match"] {
+  background: #e7f6ed;
+  color: #1b5e20;
+}
+
+.smart-level[data-level="Medium match"] {
+  background: #fff4e5;
+  color: #8a5a00;
+}
+
+.smart-level[data-level="Low match"] {
+  background: #fbeaec;
+  color: #8a1f2c;
+}
+
+.smart-score {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.smart-evidence-list {
+  display: grid;
+  gap: 8px;
+}
+
+.smart-evidence {
+  display: grid;
+  grid-template-columns: 14px 1fr;
+  gap: 8px;
+  align-items: start;
+}
+
+.smart-chevron {
+  color: var(--accent);
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.smart-evidence-title {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.smart-evidence-preview {
+  font-size: 13px;
+  color: #1f2937;
 }
 </style>

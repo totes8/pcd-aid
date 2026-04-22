@@ -16,11 +16,18 @@ import PatientListTable from '../components/PatientListTable.vue';
 <style scoped>
 .page {
   display: flex;
+  min-height: 100vh;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
 }
 .navbar {
   position: sticky;
   top: 0;
   align-self: flex-start;
   height: 100vh;
+  flex: 0 0 auto;
 }
 </style>
