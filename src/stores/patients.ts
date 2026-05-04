@@ -4,7 +4,7 @@ export type PatientStatus =
   | "Not Diagnosed"
   | "Highly Suspected"
   | "Confirmed PCD"
-  | "PCD Unconfirmed";
+  | "PCD Excluded";
 
 export type PatientListItem = {
   id: string;
@@ -17,8 +17,8 @@ export type PatientListItem = {
   tem?: "Done" | "Pending" | "N/A";
   if?: "Done" | "Pending" | "N/A" | "Unknown";
   genetics?: "Done" | "Pending" | "N/A" | "Unknown";
-  dateAdded: string;   // YYYY-MM-DD
-  lastUpdate: string;  // YYYY-MM-DD
+  dateAdded: string;   
+  lastUpdate: string;  
 };
 
 type ListState = {
@@ -111,7 +111,7 @@ export const usePatientsStore = defineStore("patients", {
         dob: "2001-07-18",
         age: calcAge("2001-07-18"),
         clinician: "Dr. Smith",
-        status: "PCD Unconfirmed",
+        status: "PCD Excluded",
         hsvm: "Done",
         nno: "Done",
         tem: "Done",

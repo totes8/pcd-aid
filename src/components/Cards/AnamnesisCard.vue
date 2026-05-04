@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { usePatientSessionStore, type AnamnesisModel } from "../../stores/patientSession";
+import { usePatientProfilesStore } from "../../stores/patientProfiles";
 
 const props = defineProps<{
   patientId: string;
@@ -13,6 +14,8 @@ const activeSubtab = ref<"picadar" | "clinicalIndex" | "postnatal" | "anamnestic
 
 const sessionStore = usePatientSessionStore();
 const anamnesis = sessionStore.getOrCreateAnamnesis(props.patientId);
+const patientProfilesStore = usePatientProfilesStore();
+const profile = computed(() => patientProfilesStore.getById(props.patientId));
 
 const PICADAR_POINTS = {
   bornTerm: 2,
@@ -28,7 +31,6 @@ const picadarScore = computed(() => {
   if (anamnesis.picadarAnswers.wetCough !== "Yes") return 0;
   let score = 0;
 
-  // For this use case: being born at term contributes points (pre-term does not).
   if (anamnesis.picadarAnswers.born === "Term") score += PICADAR_POINTS.bornTerm;
   if (anamnesis.picadarAnswers.neonatalChestSymptoms === "Yes") {
     score += PICADAR_POINTS.neonatalChestSymptoms;
@@ -108,12 +110,17 @@ watch(
 );
 
 let snapshot: AnamnesisModel | null = null;
+let familySnapshot: {
+  siblings: number;
+  siblingNote: string;
+  bloodRelativesWithPCD: number;
+} | null = null;
 
 function cloneCurrent(): AnamnesisModel {
-  // Simple data model; JSON clone is fine here.
   return JSON.parse(JSON.stringify(anamnesis)) as AnamnesisModel;
 }
 
+// snapshot anamnezy - ked user edituje sa to nakopiruje do existujuceh anamnezy
 function applySnapshot(s: AnamnesisModel) {
   anamnesis.picadar = s.picadar;
   anamnesis.clinicalIndex = s.clinicalIndex;
@@ -141,6 +148,9 @@ function applySnapshot(s: AnamnesisModel) {
   anamnesis.congenitalHeartDefect = s.congenitalHeartDefect;
   anamnesis.congenitalHeartDefectDetails = s.congenitalHeartDefectDetails;
   anamnesis.ciliaryDisorderInCns = s.ciliaryDisorderInCns;
+  anamnesis.hearingDisorder = s.hearingDisorder;
+  anamnesis.hasTTubesOrGrommets = s.hasTTubesOrGrommets;
+  anamnesis.chronicNasalPolyposis = s.chronicNasalPolyposis;
   anamnesis.retinitisPigmentosa = s.retinitisPigmentosa;
   anamnesis.renalProblems = s.renalProblems;
   anamnesis.fertilityDisorder = s.fertilityDisorder;
@@ -160,17 +170,27 @@ function applySnapshot(s: AnamnesisModel) {
 
 function startEdit() {
   snapshot = cloneCurrent();
+  familySnapshot = profile.value
+    ? {
+        siblings: profile.value.siblings,
+        siblingNote: profile.value.siblingNote,
+        bloodRelativesWithPCD: profile.value.bloodRelativesWithPCD,
+      }
+    : null;
   editing.value = true;
 }
 
 function save() {
   editing.value = false;
-  // TODO: persist to store/API
   snapshot = null;
+  familySnapshot = null;
 }
 
 function cancel() {
   if (snapshot) applySnapshot(snapshot);
+  if (profile.value && familySnapshot) {
+    patientProfilesStore.updateFamilyHistory(props.patientId, familySnapshot);
+  }
   editing.value = false;
 }
 </script>
@@ -217,7 +237,7 @@ function cancel() {
       </button>
     </div>
 
-    <!-- PICADAR -->
+    <!-- PICADAR tab -->
     <div v-if="activeSubtab === 'picadar'">
       <div class="score-row">
         <span class="label">Current PICADAR score</span>
@@ -475,7 +495,7 @@ function cancel() {
       </div>
     </div>
 
-    <!-- Clinical Index -->
+    <!-- Klinicky index tab -->
     <div v-else-if="activeSubtab === 'clinicalIndex'">
       <div class="score-row">
         <span class="label">Current Clinical Index score</span>
@@ -682,7 +702,7 @@ function cancel() {
       </div>
     </div>
 
-    <!-- Postnatal -->
+    <!-- Postnatalne data -->
     <div v-else-if="activeSubtab === 'postnatal'">
       <div class="postnatal">
         <div class="gestation">
@@ -749,7 +769,7 @@ function cancel() {
           </div>
 
           <div class="postnatal-row">
-            <span class="postnatal-label">Hospitalization at neoJIP</span>
+            <span class="postnatal-label">NICU</span>
             <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.hospitalizationAtNeoJip }}</span>
             <select v-else v-model="anamnesis.postnatal.hospitalizationAtNeoJip" class="input input--compact">
               <option>Yes</option>
@@ -769,7 +789,7 @@ function cancel() {
           </div>
 
           <div class="postnatal-row">
-            <span class="postnatal-label">Lung ventilation</span>
+            <span class="postnatal-label">Mechanical ventilation support</span>
             <span v-if="!editing" class="postnatal-value">{{ anamnesis.postnatal.lungVentilation }}</span>
             <select v-else v-model="anamnesis.postnatal.lungVentilation" class="input input--compact">
               <option>Yes</option>
@@ -781,9 +801,23 @@ function cancel() {
       </div>
     </div>
 
-    <!-- Anamnestic -->
+    <!-- Anamnesticke data -->
     <div v-else>
       <div v-if="!editing" class="postnatal-list">
+        <div class="section-title section-title--embedded">Family and General</div>
+        <div v-if="profile" class="postnatal-row">
+          <span class="postnatal-label">Siblings</span>
+          <span class="postnatal-value">
+            {{ profile.siblings }}
+            <span v-if="profile.siblingNote"> - {{ profile.siblingNote }}</span>
+          </span>
+        </div>
+
+        <div v-if="profile" class="postnatal-row">
+          <span class="postnatal-label">Blood relatives with PCD</span>
+          <span class="postnatal-value">{{ profile.bloodRelativesWithPCD }}</span>
+        </div>
+
         <div class="postnatal-row">
           <span class="postnatal-label">Organ position disorder</span>
           <span class="postnatal-value">{{ anamnesis.organPositionDisorder }}</span>
@@ -802,6 +836,22 @@ function cancel() {
         <div class="postnatal-row">
           <span class="postnatal-label">Ciliary disorder in the CNS</span>
           <span class="postnatal-value">{{ anamnesis.ciliaryDisorderInCns }}</span>
+        </div>
+
+        <div class="section-title section-title--embedded">ENT</div>
+        <div class="postnatal-row">
+          <span class="postnatal-label">Hearing disorder</span>
+          <span class="postnatal-value">{{ anamnesis.hearingDisorder }}</span>
+        </div>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">T-Tubes or Grommets</span>
+          <span class="postnatal-value">{{ anamnesis.hasTTubesOrGrommets }}</span>
+        </div>
+
+        <div class="postnatal-row">
+          <span class="postnatal-label">Chronic nasal polyposis</span>
+          <span class="postnatal-value">{{ anamnesis.chronicNasalPolyposis }}</span>
         </div>
 
         <div class="postnatal-row">
@@ -831,6 +881,39 @@ function cancel() {
       </div>
 
       <div v-else class="form-grid">
+        <div class="section-title full">Family and General</div>
+        <label v-if="profile" class="field">
+          <span class="label">Siblings</span>
+          <input
+            v-model.number="profile.siblings"
+            type="number"
+            min="0"
+            step="1"
+            class="input"
+          />
+        </label>
+
+        <label v-if="profile" class="field full">
+          <span class="label">Sibling note</span>
+          <textarea
+            v-model="profile.siblingNote"
+            rows="3"
+            class="input"
+            placeholder="Add sibling symptoms or other family context"
+          ></textarea>
+        </label>
+
+        <label v-if="profile" class="field">
+          <span class="label">Blood relatives with PCD</span>
+          <input
+            v-model.number="profile.bloodRelativesWithPCD"
+            type="number"
+            min="0"
+            step="1"
+            class="input"
+          />
+        </label>
+
         <label class="field">
           <span class="label">Organ position disorder</span>
           <select v-model="anamnesis.organPositionDisorder" class="input">
@@ -858,6 +941,34 @@ function cancel() {
         <label class="field">
           <span class="label">Ciliary disorder in the CNS</span>
           <select v-model="anamnesis.ciliaryDisorderInCns" class="input">
+            <option>Yes</option>
+            <option>No</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <div class="section-title full">ENT</div>
+        <label class="field">
+          <span class="label">Hearing disorder</span>
+          <select v-model="anamnesis.hearingDisorder" class="input">
+            <option>Yes</option>
+            <option>No</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">T-Tubes or Grommets</span>
+          <select v-model="anamnesis.hasTTubesOrGrommets" class="input">
+            <option>Yes</option>
+            <option>No</option>
+            <option>Unknown</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span class="label">Chronic nasal polyposis</span>
+          <select v-model="anamnesis.chronicNasalPolyposis" class="input">
             <option>Yes</option>
             <option>No</option>
             <option>Unknown</option>
@@ -1188,6 +1299,11 @@ padding: 6px 12px;
   font-size: 13px;
   font-weight: 700;
   color: #374151;
+}
+
+.section-title--embedded {
+  padding: 12px 12px 4px;
+  margin: 0;
 }
 
 </style>

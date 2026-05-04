@@ -20,7 +20,7 @@ import PatientProfile from "../components/PatientProfile.vue";
 }
 .main {
   flex: 1;
-  min-width: 0; /* allows grid to size properly */
+  min-width: 0; 
 }
 .navbar {
   position: sticky;

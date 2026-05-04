@@ -33,6 +33,9 @@ export type AnamnesisModel = {
   congenitalHeartDefect: "Yes" | "No" | "Unknown";
   congenitalHeartDefectDetails: string;
   ciliaryDisorderInCns: "Yes" | "No" | "Unknown";
+  hearingDisorder: "Yes" | "No" | "Unknown";
+  hasTTubesOrGrommets: "Yes" | "No" | "Unknown";
+  chronicNasalPolyposis: "Yes" | "No" | "Unknown";
   retinitisPigmentosa: "Yes" | "No" | "Unknown";
   renalProblems: "Yes" | "No" | "Unknown";
   fertilityDisorder: "Not present" | "Subfertility" | "Infertility" | "Unknown";
@@ -90,6 +93,9 @@ function templateFromListItem(item: PatientListItem): AnamnesisModel {
       organPositionDisorder: "Situs inversus",
       congenitalHeartDefect: "No",
       ciliaryDisorderInCns: "No",
+      hearingDisorder: "Yes",
+      hasTTubesOrGrommets: "Yes",
+      chronicNasalPolyposis: "No",
       retinitisPigmentosa: "No",
       renalProblems: "No",
       fertilityDisorder: "Unknown",
@@ -136,6 +142,9 @@ function templateFromListItem(item: PatientListItem): AnamnesisModel {
       organPositionDisorder: "Not present",
       congenitalHeartDefect: "No",
       ciliaryDisorderInCns: "Unknown",
+      hearingDisorder: "Yes",
+      hasTTubesOrGrommets: "Unknown",
+      chronicNasalPolyposis: "Unknown",
       retinitisPigmentosa: "No",
       renalProblems: "Unknown",
       fertilityDisorder: "Unknown",
@@ -155,7 +164,7 @@ function templateFromListItem(item: PatientListItem): AnamnesisModel {
     };
   }
 
-  if (item.status === "PCD Unconfirmed") {
+  if (item.status === "PCD Excluded") {
     return {
       ...base,
       picadar: 2,
@@ -182,6 +191,9 @@ function templateFromListItem(item: PatientListItem): AnamnesisModel {
       organPositionDisorder: "Not present",
       congenitalHeartDefect: "No",
       ciliaryDisorderInCns: "No",
+      hearingDisorder: "No",
+      hasTTubesOrGrommets: "No",
+      chronicNasalPolyposis: "No",
       retinitisPigmentosa: "No",
       renalProblems: "No",
       fertilityDisorder: "Unknown",
@@ -201,7 +213,6 @@ function templateFromListItem(item: PatientListItem): AnamnesisModel {
     };
   }
 
-  // Not diagnosed (new patients): keep unknown/blank defaults as requested.
   return base;
 }
 
@@ -230,6 +241,11 @@ function normalizeAnamnesisShape(a: any): asserts a is AnamnesisModel {
     a.congenitalHeartDefectDetails = baseDefaults.congenitalHeartDefectDetails;
   }
   if (!a.ciliaryDisorderInCns) a.ciliaryDisorderInCns = baseDefaults.ciliaryDisorderInCns;
+  if (!a.hearingDisorder) a.hearingDisorder = baseDefaults.hearingDisorder;
+  if (!a.hasTTubesOrGrommets) a.hasTTubesOrGrommets = baseDefaults.hasTTubesOrGrommets;
+  if (!a.chronicNasalPolyposis) {
+    a.chronicNasalPolyposis = baseDefaults.chronicNasalPolyposis;
+  }
   if (!a.retinitisPigmentosa) a.retinitisPigmentosa = baseDefaults.retinitisPigmentosa;
   if (!a.renalProblems) a.renalProblems = baseDefaults.renalProblems;
   if (!a.fertilityDisorder) a.fertilityDisorder = baseDefaults.fertilityDisorder;
@@ -266,6 +282,9 @@ function defaultAnamnesis(): AnamnesisModel {
     congenitalHeartDefect: "Unknown",
     congenitalHeartDefectDetails: "",
     ciliaryDisorderInCns: "Unknown",
+    hearingDisorder: "Unknown",
+    hasTTubesOrGrommets: "Unknown",
+    chronicNasalPolyposis: "Unknown",
     retinitisPigmentosa: "Unknown",
     renalProblems: "Unknown",
     fertilityDisorder: "Unknown",
@@ -306,7 +325,6 @@ export const usePatientSessionStore = defineStore("patientSession", {
         this.byPatientId[patientId] = { anamnesis: defaultAnamnesis() };
       }
 
-      // Forward-compatible for users who already have session state in memory.
       normalizeAnamnesisShape(this.byPatientId[patientId].anamnesis as any);
       return this.byPatientId[patientId];
     },

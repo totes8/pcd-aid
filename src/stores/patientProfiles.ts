@@ -7,6 +7,7 @@ export type PatientProfileData = {
   clinician: string;
   status: PatientStatus;
   siblings: number;
+  siblingNote: string;
   ageAtDiagnosis: number;
   bloodRelativesWithPCD: number;
 };
@@ -33,7 +34,7 @@ function deriveProfileFromListItem(item: PatientListItem): PatientProfileData {
     siblings = 1;
     ageAtDiagnosis = 0;
     bloodRelativesWithPCD = 1;
-  } else if (item.status === "PCD Unconfirmed") {
+  } else if (item.status === "PCD Excluded") {
     siblings = 1;
     ageAtDiagnosis = clamp(Math.round(item.age * 0.4), 2, 20);
     bloodRelativesWithPCD = 0;
@@ -45,6 +46,7 @@ function deriveProfileFromListItem(item: PatientListItem): PatientProfileData {
     clinician: item.clinician || "Janko Mrkvička",
     status: item.status,
     siblings,
+    siblingNote: "",
     ageAtDiagnosis,
     bloodRelativesWithPCD,
   };
@@ -74,7 +76,16 @@ export const usePatientProfilesStore = defineStore("patientProfiles", {
 
     updateBasicInfo(
       id: string,
-      patch: Partial<Pick<PatientProfileData, "dob" | "status" | "siblings" | "ageAtDiagnosis" | "bloodRelativesWithPCD">>,
+      patch: Partial<Pick<PatientProfileData, "dob" | "status" | "ageAtDiagnosis">>,
+    ) {
+      const item = this.byId[id];
+      if (!item) return;
+      Object.assign(item, patch);
+    },
+
+    updateFamilyHistory(
+      id: string,
+      patch: Partial<Pick<PatientProfileData, "siblings" | "siblingNote" | "bloodRelativesWithPCD">>,
     ) {
       const item = this.byId[id];
       if (!item) return;
@@ -82,4 +93,3 @@ export const usePatientProfilesStore = defineStore("patientProfiles", {
     },
   },
 });
-

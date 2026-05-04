@@ -5,7 +5,7 @@ import { usePatientsStore } from "./patients";
 export type NnoEntry = {
   id: string;
   valuePpb: number;
-  date: string; // YYYY-MM-DD
+  date: string; 
   clinician: string;
 };
 
@@ -13,13 +13,16 @@ export type HsvmAttachment = {
   name: string;
   type: string;
   size: number;
-  url: string; // Object URL for in-session download/preview
+  url: string; 
 };
 
 export type HsvmEntry = {
   id: string;
   report: string;
-  date: string; // YYYY-MM-DD
+  numberOfCellLayers: string;
+  beatFrequency: string;
+  beatPattern: string;
+  date: string; 
   clinician: string;
   attachment?: HsvmAttachment | null;
 };
@@ -27,7 +30,7 @@ export type HsvmEntry = {
 export type IfEntry = {
   id: string;
   report: string;
-  date: string; // YYYY-MM-DD
+  date: string; 
   clinician: string;
   attachment?: HsvmAttachment | null;
 };
@@ -35,7 +38,7 @@ export type IfEntry = {
 export type GeneticsEntry = {
   id: string;
   report: string;
-  date: string; // YYYY-MM-DD
+  date: string; 
   clinician: string;
   attachment?: HsvmAttachment | null;
 };
@@ -65,7 +68,7 @@ function seededSessionFromListItem(item: PatientListItem): PatientDiagnosticsSes
   const nnoValue =
     item.status === "Confirmed PCD" ? 32 :
     item.status === "Highly Suspected" ? 58 :
-    item.status === "PCD Unconfirmed" ? 118 :
+    item.status === "PCD Excluded" ? 118 :
     92;
 
   if (item.nno === "Done") {
@@ -88,6 +91,20 @@ function seededSessionFromListItem(item: PatientListItem): PatientDiagnosticsSes
     session.hsvm.push({
       id: `seed_hsvm_${item.id}`,
       report,
+      numberOfCellLayers:
+        item.status === "Confirmed PCD" ? "4-5" :
+        item.status === "Highly Suspected" ? "3-4" :
+        "4-6",
+      beatFrequency:
+        item.status === "Confirmed PCD" ? "Reduced" :
+        item.status === "Highly Suspected" ? "Borderline reduced" :
+        "Within expected range",
+      beatPattern:
+        item.status === "Confirmed PCD"
+          ? "Dyskinetic and poorly coordinated"
+          : item.status === "Highly Suspected"
+            ? "Abnormal in multiple fields"
+            : "Mostly preserved with occasional secondary dyskinesia",
       date: item.lastUpdate,
       clinician: item.clinician,
       attachment: null,
@@ -185,11 +202,22 @@ export const usePatientDiagnosticsSessionStore = defineStore("patientDiagnostics
 
     addHsvm(
       patientId: string,
-      payload: { report: string; clinician: string; date?: string; attachment?: HsvmAttachment | null },
+      payload: {
+        report: string;
+        numberOfCellLayers?: string;
+        beatFrequency?: string;
+        beatPattern?: string;
+        clinician: string;
+        date?: string;
+        attachment?: HsvmAttachment | null;
+      },
     ) {
       const entry: HsvmEntry = {
         id: `hsvm_${Date.now()}_${Math.random().toString(16).slice(2)}`,
         report: payload.report,
+        numberOfCellLayers: payload.numberOfCellLayers ?? "",
+        beatFrequency: payload.beatFrequency ?? "",
+        beatPattern: payload.beatPattern ?? "",
         clinician: payload.clinician,
         date: payload.date ?? todayIso(),
         attachment: payload.attachment ?? null,

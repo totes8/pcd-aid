@@ -7,7 +7,7 @@
 </button>
     </header>
 
-<!-- MDOAL -->
+<!-- modal new patient -->
     <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
   <div class="modal">
     <h3>Add patient</h3>
@@ -68,7 +68,7 @@
         </div>
       </div>
 
-      <!-- ADVANCED SEARCH-->
+      <!-- sirsi search -->
       <div v-if="showAdvanced" class="advanced-search">
         <div class="advanced-field">
           <label>Age (years)</label>
@@ -102,7 +102,7 @@
         </div>
       </div>
 
-      <!-- SMART SEARCH (Wizard-of-Oz stub) -->
+      <!-- smart search -->
       <div v-if="showSmartSearch" class="smart-search">
         <div class="smart-search__header">
           <h3>Smart search</h3>
@@ -130,7 +130,7 @@
         </p>
       </div>
 
-      <!-- PATIENTS TABLE  -->
+      <!-- patient list   -->
 
       <table class="table">
         <thead>
@@ -324,7 +324,7 @@ const displayedPatients = computed(() => {
   });
 });
 
-const statuses = ["Not Diagnosed", "Highly Suspected", "Confirmed PCD", "PCD Unconfirmed"];
+const statuses = ["Not Diagnosed", "Highly Suspected", "Confirmed PCD", "PCD Excluded"];
 
 const statusFilter = ref("");
 const sortKey = ref("lastUpdate");
@@ -393,103 +393,193 @@ function buildSmartResult(patient: any, prompt: string): SmartResult {
   const normalized = prompt.toLowerCase();
   let score = 0;
   const evidences: SmartEvidence[] = [];
+  const anamnesis = patientSessionStore.getOrCreateAnamnesis(patient.id);
+  const diagnostics = patientDiagnosticsSessionStore.getOrCreate(patient.id);
+  const profile = patientProfilesStore.getById(patient.id);
 
   const hasAny = (...words: string[]) => words.some((w) => normalized.includes(w));
+  const addEvidence = (label: string, preview: string, points = 1) => {
+    if (evidences.some((item) => item.label === label && item.preview === preview)) return;
+    evidences.push({ label, preview });
+    score += points;
+  };
+  const latestNno = diagnostics.nno[0];
+  const latestHsvm = diagnostics.hsvm[0];
+  const latestIf = diagnostics.if[0];
+  const latestGenetics = diagnostics.genetics[0];
+  const excerpt = (value: string, max = 92) =>
+    value.length > max ? `"${value.slice(0, max).trim()}..."` : `"${value}"`;
 
   if (hasAny("nno", "nitric oxide")) {
-    score += 3;
-    evidences.push({
-      label: "nNO signal",
-      preview: `nNO workflow state: ${patient.nno ?? "Unknown"}.`,
-    });
+    if (latestNno) {
+      addEvidence("low nNO", `Measured nNO: ${latestNno.valuePpb} ppb.`, 3);
+    } else {
+      addEvidence("nNO pending", `nNO state in the list is ${patient.nno ?? "Unknown"}.`, 1);
+    }
     if (hasAny("low", "reduced")) {
-      score += patient.nno === "Done" ? 2 : 1;
-      evidences.push({
-        label: "Low nNO cue",
-        preview: patient.nno === "Done"
-          ? "nNO is completed; measured ppb can be inspected in diagnostic entries."
-          : "nNO measurement is not completed yet; low-value confirmation pending.",
-      });
+      if (latestNno) {
+        const points = latestNno.valuePpb < 77 ? 3 : latestNno.valuePpb < 100 ? 2 : 1;
+        addEvidence("nNO value", `Latest measured nNO is ${latestNno.valuePpb} ppb.`, points);
+      }
     }
   }
 
   if (hasAny("tem", "inconclusive", "unclear ultrastructure")) {
-    score += 2;
-    if (patient.tem === "N/A") score += 2;
-    evidences.push({
-      label: "TEM cue",
-      preview: patient.tem === "N/A"
-        ? "TEM currently marked as N/A, which can indicate unresolved or incomplete evidence."
-        : `TEM state is ${patient.tem}.`,
-    });
+    addEvidence(
+      patient.tem === "N/A" ? "TEM inconclusive" : "TEM state",
+      patient.tem === "N/A"
+        ? "TEM is still not resolved in the list state."
+        : `TEM list state is ${patient.tem}.`,
+      patient.tem === "N/A" ? 3 : 1,
+    );
   }
 
   if (hasAny("hsvm", "video microscopy")) {
-    score += 2;
-    evidences.push({
-      label: "HSVM cue",
-      preview: `HSVM state: ${patient.hsvm ?? "Unknown"}.`,
-    });
+    if (latestHsvm) {
+      addEvidence("HSVM report", excerpt(latestHsvm.report), 3);
+    } else {
+      addEvidence("HSVM state", `HSVM state in the list is ${patient.hsvm ?? "Unknown"}.`, 1);
+    }
   }
 
   if (hasAny("genetic", "mutation", "variant")) {
-    score += 2;
-    evidences.push({
-      label: "Genetics cue",
-      preview: `Genetics state: ${patient.genetics ?? "Unknown"}.`,
-    });
+    if (latestGenetics) {
+      addEvidence("Genetics report", excerpt(latestGenetics.report), 3);
+    } else {
+      addEvidence("Genetics state", `Genetics state in the list is ${patient.genetics ?? "Unknown"}.`, 1);
+    }
   }
 
   if (hasAny("if", "immunofluorescence", "staining")) {
-    score += 2;
-    evidences.push({
-      label: "IF cue",
-      preview: `IF state: ${patient.if ?? "Unknown"}.`,
-    });
+    if (latestIf) {
+      addEvidence("IF report", excerpt(latestIf.report), 3);
+    } else {
+      addEvidence("IF state", `IF state in the list is ${patient.if ?? "Unknown"}.`, 1);
+    }
+  }
+
+  if (hasAny("picadar")) {
+    addEvidence("PICADAR", `PICADAR score: ${anamnesis.picadar}.`, anamnesis.picadar >= 5 ? 3 : 1);
+  }
+
+  if (hasAny("clinical index", "clinic index")) {
+    addEvidence(
+      "Clinical index",
+      `Clinical index score: ${anamnesis.clinicalIndex}.`,
+      anamnesis.clinicalIndex >= 4 ? 3 : 1,
+    );
+  }
+
+  if (hasAny("wet cough", "cough")) {
+    addEvidence(
+      "Wet cough",
+      `PICADAR wet cough: ${anamnesis.picadarAnswers.wetCough ?? "Unknown"}.`,
+      anamnesis.picadarAnswers.wetCough === "Yes" ? 2 : 1,
+    );
+  }
+
+  if (hasAny("rhinitis", "nasal discharge", "nasal obstruction")) {
+    addEvidence(
+      "Rhinitis",
+      `Postnatal rhinitis: ${anamnesis.postnatal.rhinitis}; perennial rhinitis in PICADAR: ${anamnesis.picadarAnswers.perennialRhinitis ?? "Unknown"}.`,
+      anamnesis.postnatal.rhinitis === "Yes" || anamnesis.picadarAnswers.perennialRhinitis === "Yes" ? 3 : 1,
+    );
+  }
+
+  if (hasAny("pneumonia")) {
+    addEvidence(
+      "Pneumonia history",
+      `Postnatal pneumonia: ${anamnesis.postnatal.pneumonia}; Clinical index pneumonia: ${anamnesis.clinicalIndexAnswers.pneumonia ?? "Unknown"}.`,
+      anamnesis.postnatal.pneumonia === "Yes" || anamnesis.clinicalIndexAnswers.pneumonia === "Yes" ? 3 : 1,
+    );
+  }
+
+  if (hasAny("neonatal", "nicu", "rds", "oxygen", "ventilation", "mechanical ventilation")) {
+    addEvidence(
+      "Neonatal course",
+      `Neonatal RDS ${anamnesis.postnatal.neonatalRds}, NICU ${anamnesis.postnatal.hospitalizationAtNeoJip}, oxygen therapy ${anamnesis.postnatal.oxygenTherapy}, mechanical ventilation support ${anamnesis.postnatal.lungVentilation}.`,
+      2,
+    );
+  }
+
+  if (hasAny("situs", "heterotaxy", "organ position")) {
+    addEvidence(
+      "Organ position",
+      `Organ position disorder: ${anamnesis.organPositionDisorder}.`,
+      anamnesis.organPositionDisorder !== "Not present" && anamnesis.organPositionDisorder !== "Unknown" ? 4 : 1,
+    );
+  }
+
+  if (hasAny("fertility", "subfertility", "infertility")) {
+    addEvidence("Fertility", `Fertility disorder: ${anamnesis.fertilityDisorder}.`, 2);
+  }
+
+  if (hasAny("hearing", "ear", "grommet", "grommets", "t-tube", "t-tubes")) {
+    addEvidence(
+      "ENT hearing",
+      `Hearing disorder: ${anamnesis.hearingDisorder}; T-Tubes or Grommets: ${anamnesis.hasTTubesOrGrommets}.`,
+      anamnesis.hearingDisorder === "Yes" || anamnesis.hasTTubesOrGrommets === "Yes" ? 3 : 1,
+    );
+  }
+
+  if (hasAny("polyp", "polyps", "polyposis", "nasal polyposis")) {
+    addEvidence(
+      "ENT nasal polyposis",
+      `Chronic nasal polyposis: ${anamnesis.chronicNasalPolyposis}.`,
+      anamnesis.chronicNasalPolyposis === "Yes" ? 3 : 1,
+    );
+  }
+
+  if (hasAny("renal", "kidney")) {
+    addEvidence("Renal problems", `Renal problems: ${anamnesis.renalProblems}.`, 2);
+  }
+
+  if (hasAny("retinitis", "pigmentosa", "vision")) {
+    addEvidence("Retinitis pigmentosa", `Retinitis pigmentosa: ${anamnesis.retinitisPigmentosa}.`, 2);
+  }
+
+  if (hasAny("family", "relative", "sibling")) {
+    addEvidence(
+      "Family history",
+      `Blood relatives with PCD: ${profile?.bloodRelativesWithPCD ?? 0}; siblings: ${profile?.siblings ?? 0}${profile?.siblingNote ? `; note: ${profile.siblingNote}` : ""}.`,
+      (profile?.bloodRelativesWithPCD ?? 0) > 0 ? 3 : 1,
+    );
   }
 
   if (hasAny("confirmed", "definite")) {
-    if (patient.status === "Confirmed PCD") score += 4;
-    evidences.push({
-      label: "Diagnosis status",
-      preview: `Patient status is "${patient.status}".`,
-    });
+    addEvidence("Diagnosis status", `Patient status is "${patient.status}".`, patient.status === "Confirmed PCD" ? 4 : 1);
   }
 
   if (hasAny("suspected", "probable")) {
-    if (patient.status === "Highly Suspected") score += 4;
-    evidences.push({
-      label: "Suspicion status",
-      preview: `Patient status is "${patient.status}".`,
-    });
+    addEvidence("Suspicion status", `Patient status is "${patient.status}".`, patient.status === "Highly Suspected" ? 4 : 1);
   }
 
   if (hasAny("not diagnosed", "undiagnosed")) {
-    if (patient.status === "Not Diagnosed") score += 4;
-    evidences.push({
-      label: "Diagnostic phase",
-      preview: `Patient status is "${patient.status}".`,
-    });
+    addEvidence("Diagnostic phase", `Patient status is "${patient.status}".`, patient.status === "Not Diagnosed" ? 4 : 1);
   }
 
   if (hasAny("recent", "latest", "updated")) {
-    score += 2;
-    evidences.push({
-      label: "Recency",
-      preview: `Last update: ${patient.lastUpdate}.`,
-    });
+    addEvidence("Recency", `Last update: ${patient.lastUpdate}.`, 2);
   }
 
   if (evidences.length === 0) {
-    score += 1;
-    evidences.push({
-      label: "General profile fit",
-      preview: `Status "${patient.status}", TEM "${patient.tem}", nNO "${patient.nno}".`,
-    });
+    if (latestNno) {
+      addEvidence("nNO", `Latest nNO measured value: ${latestNno.valuePpb} ppb.`, 2);
+    }
+    if (latestHsvm) {
+      addEvidence("HSVM report", excerpt(latestHsvm.report), 2);
+    }
+    if (evidences.length === 0) {
+      addEvidence(
+        "General profile fit",
+        `Status "${patient.status}", PICADAR ${anamnesis.picadar}, Clinical index ${anamnesis.clinicalIndex}.`,
+        1,
+      );
+    }
   }
 
   const level: SmartMatchLevel = score >= 7 ? "High match" : score >= 4 ? "Medium match" : "Low match";
-  return { score, level, evidences: evidences.slice(0, 3) };
+  return { score, level, evidences: evidences.slice(0, 4) };
 }
 </script>
 
@@ -689,12 +779,13 @@ h1 {
   color: #8a5a00;
 }
 .pill[data-status="Confirmed PCD"] {
-  background: #e7f6ed;
-  color: #1b5e20;
-}
-.pill[data-status="PCD Unconfirmed"] {
   background: #fbeaec;
   color: #8a1f2c;
+}
+.pill[data-status="PCD Excluded"] {
+  
+  background: #e7f6ed;
+  color: #1b5e20;
 }
 
 .diag {
@@ -922,7 +1013,8 @@ h1 {
 
 .smart-evidence-list {
   display: grid;
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
 }
 
 .smart-evidence {
@@ -931,19 +1023,32 @@ h1 {
   gap: 8px;
   align-items: start;
   min-width: 0;
+  border: 1px solid #e9edf7;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fcfdff;
 }
 
 .smart-chevron {
   color: var(--accent);
   font-weight: 800;
   line-height: 1.2;
+  margin-top: 2px;
 }
 
 .smart-evidence-title {
-  font-size: 12px;
-  color: #6b7280;
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  color: #7a8699;
   font-weight: 700;
+  background: #f3f6fb;
+  border: 1px solid #e2e8f0;
   overflow-wrap: anywhere;
+  margin-bottom: 6px;
 }
 
 .smart-evidence-preview {
@@ -952,5 +1057,7 @@ h1 {
   white-space: normal;
   overflow-wrap: anywhere;
   word-break: break-word;
+  line-height: 1.35;
+  font-weight: 500;
 }
 </style>

@@ -11,7 +11,7 @@
     </header>
 
     <div class="profile-grid">
-      <!-- LEFT: main medical info -->
+      <!-- LEFT: hlavny panel -->
       <main class="profile-main">
         <section class="card">
           <div class="card-header">
@@ -81,16 +81,8 @@
               <span>{{ patient.age }}</span>
             </div>
             <div>
-              <span class="label">Siblings</span>
-              <span>{{ patient.siblings }}</span>
-            </div>
-            <div>
               <span class="label">Age at Diagnosis</span>
               <span>{{ patient.ageAtDiagnosis }}</span>
-            </div>
-            <div>
-              <span class="label">Blood Relatives with PCD</span>
-              <span>{{ patient.bloodRelativesWithPCD }}</span>
             </div>
           </div>
 
@@ -107,17 +99,6 @@
             </label>
 
             <label class="field">
-              <span class="label">Siblings</span>
-              <input
-                v-model.number="basicInfoDraft.siblings"
-                type="number"
-                min="0"
-                step="1"
-                class="input"
-              />
-            </label>
-
-            <label class="field">
               <span class="label">Age at Diagnosis</span>
               <input
                 v-model.number="basicInfoDraft.ageAtDiagnosis"
@@ -127,21 +108,10 @@
                 class="input"
               />
             </label>
-
-            <label class="field">
-              <span class="label">Blood Relatives with PCD</span>
-              <input
-                v-model.number="basicInfoDraft.bloodRelativesWithPCD"
-                type="number"
-                min="0"
-                step="1"
-                class="input"
-              />
-            </label>
           </div>
         </section>
 
-        <!-- TABS -->
+        <!-- tabs -->
         <div class="tabs">
           <button
             class="tab"
@@ -156,13 +126,6 @@
             @click="activeTab = 'diagnostic'"
           >
             Diagnostic Test
-          </button>
-          <button
-            class="tab"
-            :class="{ 'tab--active': activeTab === 'ai' }"
-            @click="activeTab = 'ai'"
-          >
-            AI Assistant
           </button>
           <button
             class="tab"
@@ -181,13 +144,9 @@
           <!-- Diagnostic Test content -->
            <DiagnosticTests :patientId="patientId" />
         </section>
-        <section v-else-if="activeTab === 'ai'" class="tab-panel">
-          <!-- AI Assistant content -->
-           <BlankCard/>
-        </section>
         <section v-else class="tab-panel">
           <!-- Collaboration content -->
-           <BlankCard/>
+           <CollaborationCard />
         </section>
         
       </main>
@@ -245,15 +204,15 @@
 import { useRoute } from "vue-router";
 import { computed, reactive, ref } from "vue";
 import AnamnesisCard from "./Cards/AnamnesisCard.vue";
+import CollaborationCard from "./Cards/CollaborationCard.vue";
 import DiagnosticTests from "./Cards/DiagnosticTests.vue";
-import BlankCard from "./Cards/BlankCard.vue";
 import { type PatientStatus, usePatientsStore } from "../stores/patients";
 import { usePatientProfilesStore } from "../stores/patientProfiles";
 import { User } from "lucide-vue-next";
 
 const route = useRoute();
 const patientId = route.params.id as string;
-const activeTab = ref<"anamnesis" | "diagnostic" | "ai" | "collab">(
+const activeTab = ref<"anamnesis" | "diagnostic" | "collab">(
   "anamnesis",
 );
 
@@ -263,7 +222,7 @@ const pcdStatusOptions: readonly PatientStatus[] = [
   "Not Diagnosed",
   "Highly Suspected",
   "Confirmed PCD",
-  "PCD Unconfirmed",
+  "PCD Excluded",
 ];
 const pcdStatusMeta: Record<PatientStatus, { label: string; description: string }> = {
   "Not Diagnosed": {
@@ -278,9 +237,9 @@ const pcdStatusMeta: Record<PatientStatus, { label: string; description: string 
     label: "Confirmed",
     description: "PCD diagnosis confirmed.",
   },
-  "PCD Unconfirmed": {
-    label: "Unconfirmed",
-    description: "PCD not confirmed based on current data.",
+  "PCD Excluded": {
+    label: "Excluded",
+    description: "Current data argues against PCD.",
   },
 };
 
@@ -313,9 +272,7 @@ const patient = reactive({
   age: 0,
   clinician: "Janko Mrkvička",
   status: "Not Diagnosed" as PatientStatus,
-  siblings: 0,
   ageAtDiagnosis: 0,
-  bloodRelativesWithPCD: 0,
   anamnesis: {
     picadar: 7,
     clinicIndex: 5,
@@ -350,9 +307,7 @@ function hydratePatientFromStores() {
   patient.age = calcAge(profile.dob);
   patient.clinician = profile.clinician;
   patient.status = profile.status;
-  patient.siblings = profile.siblings;
   patient.ageAtDiagnosis = profile.ageAtDiagnosis;
-  patient.bloodRelativesWithPCD = profile.bloodRelativesWithPCD;
 }
 
 hydratePatientFromStores();
@@ -362,9 +317,7 @@ const basicInfoDraft = reactive({
   dob: patient.dob,
   clinician: patient.clinician,
   status: patient.status,
-  siblings: patient.siblings,
   ageAtDiagnosis: patient.ageAtDiagnosis,
-  bloodRelativesWithPCD: patient.bloodRelativesWithPCD,
 });
 
 const basicInfoAge = computed(() => {
@@ -378,13 +331,9 @@ const basicInfoDobError = computed(() => {
 const basicInfoValid = computed(() => {
   const okDob = isValidDob(basicInfoDraft.dob);
   const okStatus = pcdStatusOptions.includes(basicInfoDraft.status);
-  const okSiblings = Number.isFinite(basicInfoDraft.siblings) && basicInfoDraft.siblings >= 0;
   const okDiagAge =
     Number.isFinite(basicInfoDraft.ageAtDiagnosis) && basicInfoDraft.ageAtDiagnosis >= 0;
-  const okRelatives =
-    Number.isFinite(basicInfoDraft.bloodRelativesWithPCD) &&
-    basicInfoDraft.bloodRelativesWithPCD >= 0;
-  return okDob && okStatus && okSiblings && okDiagAge && okRelatives;
+  return okDob && okStatus && okDiagAge;
 });
 
 function startEditBasicInfo() {
@@ -392,9 +341,7 @@ function startEditBasicInfo() {
   basicInfoDraft.dob = patient.dob;
   basicInfoDraft.clinician = patient.clinician;
   basicInfoDraft.status = patient.status;
-  basicInfoDraft.siblings = patient.siblings;
   basicInfoDraft.ageAtDiagnosis = patient.ageAtDiagnosis;
-  basicInfoDraft.bloodRelativesWithPCD = patient.bloodRelativesWithPCD;
 }
 
 function cancelEditBasicInfo() {
@@ -402,9 +349,7 @@ function cancelEditBasicInfo() {
   basicInfoDraft.dob = patient.dob;
   basicInfoDraft.clinician = patient.clinician;
   basicInfoDraft.status = patient.status;
-  basicInfoDraft.siblings = patient.siblings;
   basicInfoDraft.ageAtDiagnosis = patient.ageAtDiagnosis;
-  basicInfoDraft.bloodRelativesWithPCD = patient.bloodRelativesWithPCD;
 }
 
 function saveBasicInfo() {
@@ -413,9 +358,7 @@ function saveBasicInfo() {
   patient.dob = basicInfoDraft.dob;
   patient.age = calcAge(patient.dob);
   patient.status = basicInfoDraft.status;
-  patient.siblings = basicInfoDraft.siblings;
   patient.ageAtDiagnosis = basicInfoDraft.ageAtDiagnosis;
-  patient.bloodRelativesWithPCD = basicInfoDraft.bloodRelativesWithPCD;
   editingBasicInfo.value = false;
 
   // Best-effort: keep the list store in sync if it already has this patient.
@@ -430,9 +373,7 @@ function saveBasicInfo() {
   patientProfilesStore.updateBasicInfo(patientId, {
     dob: patient.dob,
     status: patient.status,
-    siblings: patient.siblings,
     ageAtDiagnosis: patient.ageAtDiagnosis,
-    bloodRelativesWithPCD: patient.bloodRelativesWithPCD,
   });
 }
 
@@ -647,7 +588,7 @@ h2 {
   color: #1b5e20;
   border-color: #cfeedd;
 }
-.status-pill[data-status="PCD Unconfirmed"] {
+.status-pill[data-status="PCD Excluded"] {
   background: #fbeaec;
   color: #8a1f2c;
   border-color: #f7cbd1;

@@ -14,6 +14,21 @@
       </label>
 
       <label class="field">
+        <span class="label">Number of cell layers</span>
+        <input v-model="newNumberOfCellLayers" type="text" class="input" />
+      </label>
+
+      <label class="field">
+        <span class="label">Beat frequency</span>
+        <input v-model="newBeatFrequency" type="text" class="input" />
+      </label>
+
+      <label class="field full">
+        <span class="label">Beat pattern</span>
+        <input v-model="newBeatPattern" type="text" class="input" />
+      </label>
+
+      <label class="field">
         <span class="label">Date</span>
         <input v-model="newDate" type="date" class="input" />
       </label>
@@ -47,6 +62,21 @@
             <p class="report-text">{{ e.report }}</p>
           </div>
 
+          <div v-if="e.numberOfCellLayers || e.beatFrequency || e.beatPattern" class="metrics">
+            <div v-if="e.numberOfCellLayers" class="metric">
+              <span class="metric-label">Number of cell layers</span>
+              <span class="metric-value">{{ e.numberOfCellLayers }}</span>
+            </div>
+            <div v-if="e.beatFrequency" class="metric">
+              <span class="metric-label">Beat frequency</span>
+              <span class="metric-value">{{ e.beatFrequency }}</span>
+            </div>
+            <div v-if="e.beatPattern" class="metric metric--full">
+              <span class="metric-label">Beat pattern</span>
+              <span class="metric-value">{{ e.beatPattern }}</span>
+            </div>
+          </div>
+
           <div v-if="e.attachment?.url" class="attachment">
             <a class="attachment-link" :href="e.attachment.url" target="_blank" rel="noreferrer">
               {{ e.attachment.name }}
@@ -67,6 +97,21 @@
           <label class="field full">
             <span class="label">Report</span>
             <textarea v-model="editReport" rows="5" class="input"></textarea>
+          </label>
+
+          <label class="field">
+            <span class="label">Number of cell layers</span>
+            <input v-model="editNumberOfCellLayers" type="text" class="input" />
+          </label>
+
+          <label class="field">
+            <span class="label">Beat frequency</span>
+            <input v-model="editBeatFrequency" type="text" class="input" />
+          </label>
+
+          <label class="field full">
+            <span class="label">Beat pattern</span>
+            <input v-model="editBeatPattern" type="text" class="input" />
           </label>
 
           <label class="field">
@@ -108,12 +153,18 @@ const entries = computed(() => store.listHsvm(props.patientId));
 
 const adding = ref(false);
 const newReport = ref("");
+const newNumberOfCellLayers = ref("");
+const newBeatFrequency = ref("");
+const newBeatPattern = ref("");
 const newDate = ref<string>(new Date().toISOString().slice(0, 10));
 const newAttachment = ref<HsvmAttachment | null>(null);
 const newAttachmentName = computed(() => newAttachment.value?.name ?? "");
 
 const editingId = ref<string | null>(null);
 const editReport = ref("");
+const editNumberOfCellLayers = ref("");
+const editBeatFrequency = ref("");
+const editBeatPattern = ref("");
 const editDate = ref("");
 const editAttachment = ref<HsvmAttachment | null>(null);
 const editAttachmentName = computed(() => editAttachment.value?.name ?? "");
@@ -124,6 +175,9 @@ const canSaveEdit = computed(() => editReport.value.trim().length > 0 && !!editi
 function startAdd() {
   adding.value = true;
   newReport.value = "";
+  newNumberOfCellLayers.value = "";
+  newBeatFrequency.value = "";
+  newBeatPattern.value = "";
   newDate.value = new Date().toISOString().slice(0, 10);
   newAttachment.value = null;
 }
@@ -131,6 +185,9 @@ function startAdd() {
 function cancelAdd() {
   adding.value = false;
   newReport.value = "";
+  newNumberOfCellLayers.value = "";
+  newBeatFrequency.value = "";
+  newBeatPattern.value = "";
   newAttachment.value = null;
 }
 
@@ -154,12 +211,18 @@ function saveNew() {
   if (!report) return;
   store.addHsvm(props.patientId, {
     report,
+    numberOfCellLayers: newNumberOfCellLayers.value.trim(),
+    beatFrequency: newBeatFrequency.value.trim(),
+    beatPattern: newBeatPattern.value.trim(),
     clinician: CURRENT_CLINICIAN,
     date: newDate.value,
     attachment: newAttachment.value,
   });
   adding.value = false;
   newReport.value = "";
+  newNumberOfCellLayers.value = "";
+  newBeatFrequency.value = "";
+  newBeatPattern.value = "";
   newAttachment.value = null;
 }
 
@@ -168,6 +231,9 @@ function startEdit(id: string) {
   if (!item) return;
   editingId.value = id;
   editReport.value = item.report;
+  editNumberOfCellLayers.value = item.numberOfCellLayers;
+  editBeatFrequency.value = item.beatFrequency;
+  editBeatPattern.value = item.beatPattern;
   editDate.value = item.date;
   editAttachment.value = null;
 }
@@ -175,6 +241,9 @@ function startEdit(id: string) {
 function cancelEdit() {
   editingId.value = null;
   editReport.value = "";
+  editNumberOfCellLayers.value = "";
+  editBeatFrequency.value = "";
+  editBeatPattern.value = "";
   editDate.value = "";
   editAttachment.value = null;
 }
@@ -201,6 +270,9 @@ function saveEdit() {
 
   store.updateHsvm(props.patientId, editingId.value, {
     report,
+    numberOfCellLayers: editNumberOfCellLayers.value.trim(),
+    beatFrequency: editBeatFrequency.value.trim(),
+    beatPattern: editBeatPattern.value.trim(),
     date: editDate.value,
     attachment: editAttachment.value ?? undefined,
   });
@@ -306,6 +378,36 @@ function formatBytes(bytes: number): string {
   white-space: pre-wrap;
   color: #111827;
   line-height: 1.35;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metric {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid #eef1f6;
+  border-radius: 10px;
+  background: #fafbfe;
+}
+
+.metric--full {
+  grid-column: 1 / -1;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 700;
+}
+
+.metric-value {
+  color: #111827;
+  font-weight: 600;
 }
 
 .attachment {
@@ -420,9 +522,9 @@ function formatBytes(bytes: number): string {
 
 @media (max-width: 720px) {
   .composer,
-  .edit {
+  .edit,
+  .metrics {
     grid-template-columns: 1fr;
   }
 }
 </style>
-
